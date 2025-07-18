@@ -1,103 +1,146 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter } from "lucide-react"
 import Link from "next/link"
+import { Dialog } from "@/components/ui/dialog"
 
-// Mock data for teams
-const teams = [
-  {
-    id: 1,
-    name: "DeFi Innovators",
-    logo: "🚀",
-    description: "Building the future of decentralized finance",
-    trustScore: 94,
-    members: 8,
-    projects: 12,
-    funding: "$2.4M",
-    tags: ["DeFi", "Smart Contracts", "Ethereum"],
-  },
-  {
-    id: 2,
-    name: "NFT Creators",
-    logo: "🎨",
-    description: "Revolutionary NFT marketplace and tools",
-    trustScore: 87,
-    members: 6,
-    projects: 8,
-    funding: "$1.8M",
-    tags: ["NFT", "Marketplace", "Art"],
-  },
-  {
-    id: 3,
-    name: "Web3 Security",
-    logo: "🔒",
-    description: "Blockchain security auditing and consulting",
-    trustScore: 96,
-    members: 12,
-    projects: 24,
-    funding: "$3.2M",
-    tags: ["Security", "Auditing", "Consulting"],
-  },
-  {
-    id: 4,
-    name: "GameFi Studios",
-    logo: "🎮",
-    description: "Play-to-earn gaming experiences",
-    trustScore: 82,
-    members: 15,
-    projects: 6,
-    funding: "$5.1M",
-    tags: ["Gaming", "P2E", "Metaverse"],
-  },
-  {
-    id: 5,
-    name: "DAO Builders",
-    logo: "🏛️",
-    description: "Decentralized governance solutions",
-    trustScore: 91,
-    members: 10,
-    projects: 16,
-    funding: "$2.9M",
-    tags: ["DAO", "Governance", "Community"],
-  },
-  {
-    id: 6,
-    name: "Layer 2 Labs",
-    logo: "⚡",
-    description: "Scaling solutions for blockchain networks",
-    trustScore: 89,
-    members: 14,
-    projects: 9,
-    funding: "$4.5M",
-    tags: ["Layer 2", "Scaling", "Infrastructure"],
-  },
-]
+// MOCK USER ID (replace with real user/session logic when available)
+const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec" // Test User
 
 export function TeamsDirectory() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [filteredTeams, setFilteredTeams] = useState(teams)
+  const [teams, setTeams] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [joining, setJoining] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState<{ teamId: string | null }>({ teamId: null })
+  const [leaving, setLeaving] = useState<string | null>(null)
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    const filtered = teams.filter(
-      (team) =>
-        team.name.toLowerCase().includes(term.toLowerCase()) ||
-        team.description.toLowerCase().includes(term.toLowerCase()) ||
-        team.tags.some((tag) => tag.toLowerCase().includes(term.toLowerCase())),
+  // Fetch teams and their stats
+  useEffect(() => {
+    async function fetchTeams() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch("/api/teams")
+        const data = await res.json()
+        if (!Array.isArray(data)) throw new Error("Failed to fetch teams")
+        // For each team, fetch trust score, members, and projects
+        const teamsWithStats = await Promise.all(
+          data.map(async (team: any) => {
+            // Trust Score
+            let trustScore = null
+            try {
+              const scoreRes = await fetch(`/api/teams/${team.id}/score`)
+              const scoreData = await scoreRes.json()
+              trustScore = scoreData.score ? Math.round(scoreData.score) : null
+            } catch {}
+            // Members
+            let members = []
+            try {
+              const membersRes = await fetch(`/api/teams/${team.id}/members`)
+              members = await membersRes.json()
+            } catch {}
+            // Projects
+            let projects = []
+            try {
+              const projectsRes = await fetch(`/api/teams/${team.id}/projects`)
+              projects = await projectsRes.json()
+            } catch {}
+            // Is current user a member?
+            const isMember = Array.isArray(members) && members.some((m: any) => m.userId === MOCK_USER_ID)
+            return {
+              ...team,
+              trustScore,
+              membersCount: Array.isArray(members) ? members.length : 0,
+              projectsCount: Array.isArray(projects) ? projects.length : 0,
+              isMember,
+            }
+          })
+        )
+        setTeams(teamsWithStats)
+      } catch (e: any) {
+        setError(e.message || "Failed to load teams")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchTeams()
+  }, [])
+
+  // Search filter
+  const filteredTeams = teams.filter((team) => {
+    const term = searchTerm.toLowerCase()
+    return (
+      team.name.toLowerCase().includes(term) ||
+      (team.bio && team.bio.toLowerCase().includes(term))
     )
-    setFilteredTeams(filtered)
-  }
+  })
 
+  // Trust score color
   const getTrustScoreColor = (score: number) => {
     if (score >= 90) return "from-green-500 to-emerald-500"
     if (score >= 80) return "from-blue-500 to-cyan-500"
     if (score >= 70) return "from-yellow-500 to-orange-500"
     return "from-red-500 to-pink-500"
+  }
+
+  // Join team handler
+  const handleJoin = async (teamId: string) => {
+    setJoining(teamId)
+    setError(null)
+    try {
+      const res = await fetch(`/api/teams/${teamId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: MOCK_USER_ID, role: "member" }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to join team")
+      }
+      // Optionally, refresh members count
+      setTeams((prev) =>
+        prev.map((t) =>
+          t.id === teamId ? { ...t, membersCount: t.membersCount + 1 } : t
+        )
+      )
+    } catch (e: any) {
+      setError(e.message || "Failed to join team")
+    } finally {
+      setJoining(null)
+    }
+  }
+
+  // Leave team handler
+  const handleLeave = async (teamId: string) => {
+    setLeaving(teamId)
+    setError(null)
+    try {
+      const res = await fetch(`/api/teams/${teamId}/members/${MOCK_USER_ID}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to leave team")
+      }
+      // Update UI
+      setTeams((prev) =>
+        prev.map((t) =>
+          t.id === teamId ? { ...t, membersCount: t.membersCount - 1, isMember: false } : t
+        )
+      )
+    } catch (e: any) {
+      setError(e.message || "Failed to leave team")
+    } finally {
+      setLeaving(null)
+      setShowConfirm({ teamId: null })
+    }
   }
 
   return (
@@ -120,9 +163,9 @@ export function TeamsDirectory() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search teams, skills, or projects..."
+            placeholder="Search teams..."
             value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -132,70 +175,115 @@ export function TeamsDirectory() {
         </Button>
       </div>
 
-      {/* Teams Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTeams.map((team, index) => (
-          <Card
-            key={team.id}
-            className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
-            style={{ animationDelay: `${index * 0.1}s` }}
-          >
-            <Link href={`/teams/${team.id}`}>
-              <CardContent className="p-6">
-                {/* Team Header */}
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="text-3xl">{team.logo}</div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
-                    <p className="text-sm text-muted-foreground">{team.description}</p>
+      {/* Error/Loading */}
+      {error && <div className="text-center text-red-500 mb-4">{error}</div>}
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading teams...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTeams.map((team, index) => (
+            <Card
+              key={team.id}
+              className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <Link href={`/teams/${team.id}`}>
+                <CardContent className="p-6">
+                  {/* Team Header */}
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="text-3xl">🏢</div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
+                      <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Trust Score */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Trust Score</span>
-                    <span className="text-sm font-bold text-primary">{team.trustScore}/100</span>
+                  {/* Trust Score */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium">Trust Score</span>
+                      <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-2">
+                      <div
+                        className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
+                        style={{ width: `${team.trustScore || 0}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div
-                      className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore)} h-2 rounded-full transition-all duration-500`}
-                      style={{ width: `${team.trustScore}%` }}
-                    ></div>
-                  </div>
-                </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-primary">{team.projects}</div>
-                    <div className="text-xs text-muted-foreground">Projects</div>
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
+                      <div className="text-xs text-muted-foreground">Projects</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-primary">{team.membersCount}</div>
+                      <div className="text-xs text-muted-foreground">Members</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-lg font-bold text-primary">{team.members}</div>
-                    <div className="text-xs text-muted-foreground">Members</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-primary">{team.funding}</div>
-                    <div className="text-xs text-muted-foreground">Raised</div>
-                  </div>
-                </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2">
-                  {team.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Link>
-          </Card>
-        ))}
-      </div>
+                  {/* Join/Leave Button */}
+                  <div className="flex justify-end gap-2">
+                    {!team.isMember ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={joining === team.id}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleJoin(team.id)
+                        }}
+                      >
+                        {joining === team.id ? "Joining..." : "Join"}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={leaving === team.id}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setShowConfirm({ teamId: team.id })
+                        }}
+                      >
+                        {leaving === team.id ? "Leaving..." : "Leave"}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Link>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {filteredTeams.length === 0 && (
+      {/* Leave Confirmation Dialog */}
+      {showConfirm.teamId && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-8 max-w-sm w-full">
+            <div className="mb-4 text-lg font-semibold">Are you sure you want to leave?</div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirm({ teamId: null })}
+              >
+                No
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleLeave(showConfirm.teamId!)}
+                disabled={leaving === showConfirm.teamId}
+              >
+                Yes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!loading && filteredTeams.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No teams found matching your search criteria.</p>
         </div>
