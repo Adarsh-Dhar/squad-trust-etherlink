@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter as DialogFooterUI, DialogClose } from "@/components/ui/dialog";
+import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogFooter as UIDialogFooter, DialogClose as UIDialogClose } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 
 interface Project {
@@ -67,6 +67,150 @@ export default function ProjectDetailsPage() {
   const { register: registerMilestone, handleSubmit: handleSubmitMilestone, reset: resetMilestone, formState: { errors: milestoneErrors, isSubmitting: isSubmittingMilestone } } = useForm();
   // Funding form
   const { register: registerFunding, handleSubmit: handleSubmitFunding, reset: resetFunding, formState: { errors: fundingErrors, isSubmitting: isSubmittingFunding } } = useForm();
+
+  // Roles state and form
+  const [roles, setRoles] = useState<any[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
+  const { register: registerRole, handleSubmit: handleSubmitRole, reset: resetRole, formState: { errors: roleErrors, isSubmitting: isClaiming } } = useForm();
+
+  // MOCK USER ID (replace with real user/session logic when available)
+  const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec";
+
+  // Add to ProjectDetailsPage function, after roles state
+  const [editRoleId, setEditRoleId] = useState<string | null>(null);
+  const [editRoleData, setEditRoleData] = useState({ roleTitle: "", description: "" });
+  const [editRoleLoading, setEditRoleLoading] = useState(false);
+  const [editRoleError, setEditRoleError] = useState<string | null>(null);
+  const [editRoleSuccess, setEditRoleSuccess] = useState(false);
+
+  const [verifyRoleId, setVerifyRoleId] = useState<string | null>(null);
+  const [verifyComment, setVerifyComment] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifySuccess, setVerifySuccess] = useState(false);
+
+  const [viewVerificationsRoleId, setViewVerificationsRoleId] = useState<string | null>(null);
+  const [verifications, setVerifications] = useState<any[]>([]);
+  const [verificationsLoading, setVerificationsLoading] = useState(false);
+  const [verificationsError, setVerificationsError] = useState<string | null>(null);
+
+  // Edit role handler
+  const openEditRole = (role: any) => {
+    setEditRoleId(role.id);
+    setEditRoleData({ roleTitle: role.roleTitle, description: role.description });
+    setEditRoleError(null);
+    setEditRoleSuccess(false);
+  };
+  const closeEditRole = () => {
+    setEditRoleId(null);
+    setEditRoleData({ roleTitle: "", description: "" });
+    setEditRoleError(null);
+    setEditRoleSuccess(false);
+  };
+  const handleEditRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRoleId) return;
+    setEditRoleLoading(true);
+    setEditRoleError(null);
+    setEditRoleSuccess(false);
+    try {
+      const res = await fetch(`/api/roles/${editRoleId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editRoleData),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update role");
+      setRoles((prev) => prev.map((r) => (r.id === editRoleId ? { ...r, ...editRoleData } : r)));
+      setEditRoleSuccess(true);
+      setTimeout(closeEditRole, 1000);
+    } catch (e: any) {
+      setEditRoleError(e.message || "Failed to update role");
+    } finally {
+      setEditRoleLoading(false);
+    }
+  };
+
+  // Verify role handler (stubbed, as endpoint is not implemented)
+  const openVerifyRole = (roleId: string) => {
+    setVerifyRoleId(roleId);
+    setVerifyComment("");
+    setVerifyError(null);
+    setVerifySuccess(false);
+  };
+  const closeVerifyRole = () => {
+    setVerifyRoleId(null);
+    setVerifyComment("");
+    setVerifyError(null);
+    setVerifySuccess(false);
+  };
+  const handleVerifyRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyRoleId) return;
+    setVerifyLoading(true);
+    setVerifyError(null);
+    setVerifySuccess(false);
+    // STUB: Simulate success
+    setTimeout(() => {
+      setVerifySuccess(true);
+      setVerifyLoading(false);
+      setTimeout(closeVerifyRole, 1000);
+    }, 1000);
+    // Uncomment below when endpoint is implemented
+    /*
+    try {
+      const res = await fetch(`/api/roles/${verifyRoleId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verifierId: MOCK_USER_ID, comment: verifyComment }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to verify role");
+      setVerifySuccess(true);
+      setTimeout(closeVerifyRole, 1000);
+    } catch (e: any) {
+      setVerifyError(e.message || "Failed to verify role");
+    } finally {
+      setVerifyLoading(false);
+    }
+    */
+  };
+
+  // View verifications handler (stubbed, as endpoint is not implemented)
+  const openViewVerifications = async (roleId: string) => {
+    setViewVerificationsRoleId(roleId);
+    setVerificationsLoading(true);
+    setVerificationsError(null);
+    // STUB: Simulate verifications
+    setTimeout(() => {
+      setVerifications([
+        { id: "1", verifier: { name: "Verifier 1" }, comment: "Great work!", createdAt: new Date().toISOString() },
+        { id: "2", verifier: { name: "Verifier 2" }, comment: "Solid contribution.", createdAt: new Date().toISOString() },
+      ]);
+      setVerificationsLoading(false);
+    }, 800);
+    // Uncomment below when endpoint is implemented
+    /*
+    try {
+      const res = await fetch(`/api/roles/${roleId}/verifications`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch verifications");
+      setVerifications(data);
+    } catch (e: any) {
+      setVerificationsError(e.message || "Failed to load verifications");
+    } finally {
+      setVerificationsLoading(false);
+    }
+    */
+  };
+  const closeViewVerifications = () => {
+    setViewVerificationsRoleId(null);
+    setVerifications([]);
+    setVerificationsError(null);
+  };
 
   useEffect(() => {
     async function fetchProject() {
@@ -245,17 +389,6 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Roles state and form
-  const [roles, setRoles] = useState<any[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(true);
-  const [rolesError, setRolesError] = useState<string | null>(null);
-  const [claimError, setClaimError] = useState<string | null>(null);
-  const [claimSuccess, setClaimSuccess] = useState(false);
-  const { register: registerRole, handleSubmit: handleSubmitRole, reset: resetRole, formState: { errors: roleErrors, isSubmitting: isClaiming } } = useForm();
-
-  // MOCK USER ID (replace with real user/session logic when available)
-  const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec";
-
   useEffect(() => {
     async function fetchRoles() {
       setRolesLoading(true);
@@ -386,11 +519,11 @@ export default function ProjectDetailsPage() {
           </CardContent>
         </Card>
         {/* Add Milestone Dialog */}
-        <Dialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Milestone</DialogTitle>
-            </DialogHeader>
+        <UIDialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen}>
+          <UIDialogContent>
+            <UIDialogHeader>
+              <UIDialogTitle>Add Milestone</UIDialogTitle>
+            </UIDialogHeader>
             <form onSubmit={handleSubmitMilestone(onAddMilestone)} className="space-y-4">
               <div>
                 <Label htmlFor="milestone-title">Title</Label>
@@ -405,15 +538,15 @@ export default function ProjectDetailsPage() {
                 <Label htmlFor="milestone-dueDate">Due Date</Label>
                 <Input id="milestone-dueDate" type="date" {...registerMilestone("dueDate")} />
               </div>
-              <DialogFooterUI className="flex gap-2">
+              <UIDialogFooter className="flex gap-2">
                 <Button type="submit" disabled={addMilestoneLoading || isSubmittingMilestone}>{addMilestoneLoading ? "Adding..." : "Add"}</Button>
-                <DialogClose asChild>
+                <UIDialogClose asChild>
                   <Button type="button" variant="secondary">Cancel</Button>
-                </DialogClose>
-              </DialogFooterUI>
+                </UIDialogClose>
+              </UIDialogFooter>
             </form>
-          </DialogContent>
-        </Dialog>
+          </UIDialogContent>
+        </UIDialog>
       </div>
 
       {/* Funding Section */}
@@ -447,11 +580,11 @@ export default function ProjectDetailsPage() {
           </CardContent>
         </Card>
         {/* Add Funding Dialog */}
-        <Dialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Log Funding</DialogTitle>
-            </DialogHeader>
+        <UIDialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
+          <UIDialogContent>
+            <UIDialogHeader>
+              <UIDialogTitle>Log Funding</UIDialogTitle>
+            </UIDialogHeader>
             <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
               <div>
                 <Label htmlFor="funding-amount">Amount</Label>
@@ -471,15 +604,15 @@ export default function ProjectDetailsPage() {
                 <Label htmlFor="funding-txHash">Transaction Hash</Label>
                 <Input id="funding-txHash" {...registerFunding("txHash")} />
               </div>
-              <DialogFooterUI className="flex gap-2">
+              <UIDialogFooter className="flex gap-2">
                 <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Logging..." : "Log"}</Button>
-                <DialogClose asChild>
+                <UIDialogClose asChild>
                   <Button type="button" variant="secondary">Cancel</Button>
-                </DialogClose>
-              </DialogFooterUI>
+                </UIDialogClose>
+              </UIDialogFooter>
             </form>
-          </DialogContent>
-        </Dialog>
+          </UIDialogContent>
+        </UIDialog>
       </div>
 
       {/* Roles Section */}
@@ -509,7 +642,14 @@ export default function ProjectDetailsPage() {
                     <div className="flex flex-col md:items-end gap-1 mt-2 md:mt-0">
                       <span className={`text-xs font-semibold ${role.verified ? "text-green-600" : "text-yellow-600"}`}>{role.verified ? "Verified" : "Unverified"}</span>
                       {role.verifications && role.verifications.length > 0 && (
-                        <span className="text-xs text-muted-foreground">{role.verifications.length} verification{role.verifications.length > 1 ? "s" : ""}</span>
+                        <Button size="sm" variant="outline" onClick={() => openViewVerifications(role.id)}>
+                          View Verifications ({role.verifications.length})
+                        </Button>
+                      )}
+                      {role.userId === MOCK_USER_ID ? (
+                        <Button size="sm" variant="secondary" onClick={() => openEditRole(role)}>Edit</Button>
+                      ) : (
+                        <Button size="sm" variant="success" onClick={() => openVerifyRole(role.id)}>Verify</Button>
                       )}
                     </div>
                   </li>
@@ -533,11 +673,11 @@ export default function ProjectDetailsPage() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-          </DialogHeader>
+      <UIDialog open={editOpen} onOpenChange={setEditOpen}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Edit Project</UIDialogTitle>
+          </UIDialogHeader>
           <form onSubmit={handleEdit} className="space-y-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -555,31 +695,107 @@ export default function ProjectDetailsPage() {
               <Label htmlFor="liveUrl">Live URL</Label>
               <Input id="liveUrl" type="url" value={editData.liveUrl} onChange={e => setEditData({ ...editData, liveUrl: e.target.value })} />
             </div>
-            <DialogFooterUI className="flex gap-2">
+            <UIDialogFooter className="flex gap-2">
               <Button type="submit" className="flex-1" disabled={editLoading}>{editLoading ? "Saving..." : "Save"}</Button>
-              <DialogClose asChild>
+              <UIDialogClose asChild>
                 <Button type="button" variant="secondary" className="flex-1">Cancel</Button>
-              </DialogClose>
-            </DialogFooterUI>
+              </UIDialogClose>
+            </UIDialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </UIDialogContent>
+      </UIDialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Project</DialogTitle>
-          </DialogHeader>
+      <UIDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Delete Project</UIDialogTitle>
+          </UIDialogHeader>
           <p>Are you sure you want to delete this project? This action cannot be undone.</p>
-          <DialogFooterUI className="flex gap-2">
+          <UIDialogFooter className="flex gap-2">
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>{deleteLoading ? "Deleting..." : "Delete"}</Button>
-            <DialogClose asChild>
+            <UIDialogClose asChild>
               <Button type="button" variant="secondary">Cancel</Button>
-            </DialogClose>
-          </DialogFooterUI>
-        </DialogContent>
-      </Dialog>
+            </UIDialogClose>
+          </UIDialogFooter>
+        </UIDialogContent>
+      </UIDialog>
+
+      {/* Edit Role Dialog */}
+      <UIDialog open={!!editRoleId} onOpenChange={closeEditRole}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Edit Role</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={handleEditRole} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-role-title">Role Title</Label>
+              <Input id="edit-role-title" value={editRoleData.roleTitle} onChange={e => setEditRoleData({ ...editRoleData, roleTitle: e.target.value })} required />
+            </div>
+            <div>
+              <Label htmlFor="edit-role-description">Description</Label>
+              <Textarea id="edit-role-description" value={editRoleData.description} onChange={e => setEditRoleData({ ...editRoleData, description: e.target.value })} required />
+            </div>
+            {editRoleError && <p className="text-sm text-destructive mt-1">{editRoleError}</p>}
+            {editRoleSuccess && <p className="text-sm text-green-600 mt-1">Role updated!</p>}
+            <UIDialogFooter className="flex gap-2">
+              <Button type="submit" disabled={editRoleLoading}>{editRoleLoading ? "Saving..." : "Save"}</Button>
+              <UIDialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </UIDialogClose>
+            </UIDialogFooter>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
+
+      {/* Verify Role Dialog */}
+      <UIDialog open={!!verifyRoleId} onOpenChange={closeVerifyRole}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Verify Role</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={handleVerifyRole} className="space-y-4">
+            <div>
+              <Label htmlFor="verify-comment">Comment</Label>
+              <Textarea id="verify-comment" value={verifyComment} onChange={e => setVerifyComment(e.target.value)} required />
+            </div>
+            {verifyError && <p className="text-sm text-destructive mt-1">{verifyError}</p>}
+            {verifySuccess && <p className="text-sm text-green-600 mt-1">Verification submitted!</p>}
+            <UIDialogFooter className="flex gap-2">
+              <Button type="submit" disabled={verifyLoading}>{verifyLoading ? "Submitting..." : "Submit"}</Button>
+              <UIDialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </UIDialogClose>
+            </UIDialogFooter>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
+
+      {/* View Verifications Dialog */}
+      <UIDialog open={!!viewVerificationsRoleId} onOpenChange={closeViewVerifications}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Verifications</UIDialogTitle>
+          </UIDialogHeader>
+          {verificationsLoading ? (
+            <div className="text-muted-foreground">Loading...</div>
+          ) : verificationsError ? (
+            <div className="text-destructive">{verificationsError}</div>
+          ) : verifications.length === 0 ? (
+            <div className="text-muted-foreground">No verifications yet.</div>
+          ) : (
+            <ul className="space-y-3">
+              {verifications.map((v) => (
+                <li key={v.id} className="p-3 rounded bg-muted">
+                  <div className="font-medium">{v.verifier?.name || "Unknown"}</div>
+                  <div className="text-sm text-muted-foreground">{v.comment}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{v.createdAt ? new Date(v.createdAt).toLocaleString() : ""}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </UIDialogContent>
+      </UIDialog>
     </div>
   );
 } 
