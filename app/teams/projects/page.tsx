@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 interface Project {
   id: string;
@@ -96,41 +97,47 @@ export default function AllProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
           {filteredProjects.map((project) => (
-            <Card key={project.id} className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up">
-              <CardContent className="p-6 flex flex-col h-full">
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-1">
-                    {project.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {project.description || "No description"}
-                  </p>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    Team: <span className="font-medium text-primary">{teams[project.teamId]?.name || project.teamId}</span>
-                  </div>
-                  {project.githubRepo && (
-                    <a
-                      href={project.githubRepo}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline block mb-1"
-                    >
-                      GitHub Repo
-                    </a>
-                  )}
-                  {project.liveUrl && (
-                    <a
-                      href={project.liveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-green-600 hover:underline block"
-                    >
-                      Live Site
-                    </a>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={project.id} href={`/projects/${project.id}`} passHref legacyBehavior>
+              <a className="block">
+                <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up">
+                  <CardContent className="p-6 flex flex-col h-full">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-1">
+                        {project.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {project.description || "No description"}
+                      </p>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Team: <span className="font-medium text-primary">{teams[project.teamId]?.name || project.teamId}</span>
+                      </div>
+                      {project.githubRepo && (
+                        <a
+                          href={project.githubRepo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline block mb-1"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          GitHub Repo
+                        </a>
+                      )}
+                      {project.liveUrl && (
+                        <a
+                          href={project.liveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-green-600 hover:underline block"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Live Site
+                        </a>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </a>
+            </Link>
           ))}
         </div>
       )}
