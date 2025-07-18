@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter as DialogFooterUI, DialogClose } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
 
 interface Project {
   id: string;
@@ -17,6 +18,23 @@ interface Project {
   githubRepo?: string;
   liveUrl?: string;
   status?: string;
+}
+
+interface Milestone {
+  id: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  dueDate?: string;
+}
+
+interface Funding {
+  id: string;
+  amount: number;
+  currency: string;
+  source?: string;
+  txHash?: string;
+  receivedAt?: string;
 }
 
 export default function ProjectDetailsPage() {
@@ -34,6 +52,21 @@ export default function ProjectDetailsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [completeLoading, setCompleteLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestoneLoading, setMilestoneLoading] = useState(true);
+  const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
+  const [addMilestoneLoading, setAddMilestoneLoading] = useState(false);
+  const [fundings, setFundings] = useState<Funding[]>([]);
+  const [fundingLoading, setFundingLoading] = useState(true);
+  const [fundingError, setFundingError] = useState<string | null>(null);
+  const [addFundingOpen, setAddFundingOpen] = useState(false);
+  const [addFundingLoading, setAddFundingLoading] = useState(false);
+
+  // Milestone form
+  const { register: registerMilestone, handleSubmit: handleSubmitMilestone, reset: resetMilestone, formState: { errors: milestoneErrors, isSubmitting: isSubmittingMilestone } } = useForm();
+  // Funding form
+  const { register: registerFunding, handleSubmit: handleSubmitFunding, reset: resetFunding, formState: { errors: fundingErrors, isSubmitting: isSubmittingFunding } } = useForm();
 
   useEffect(() => {
     async function fetchProject() {
@@ -51,6 +84,44 @@ export default function ProjectDetailsPage() {
       }
     }
     if (projectId) fetchProject();
+  }, [projectId]);
+
+  // Fetch milestones
+  useEffect(() => {
+    async function fetchMilestones() {
+      setMilestoneLoading(true);
+      setMilestoneError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/milestones`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch milestones");
+        setMilestones(data);
+      } catch (e: any) {
+        setMilestoneError(e.message || "Failed to load milestones");
+      } finally {
+        setMilestoneLoading(false);
+      }
+    }
+    if (projectId) fetchMilestones();
+  }, [projectId]);
+
+  // Fetch funding
+  useEffect(() => {
+    async function fetchFunding() {
+      setFundingLoading(true);
+      setFundingError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/funding`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch funding");
+        setFundings(data);
+      } catch (e: any) {
+        setFundingError(e.message || "Failed to load funding");
+      } finally {
+        setFundingLoading(false);
+      }
+    }
+    if (projectId) fetchFunding();
   }, [projectId]);
 
   const openEdit = () => {
@@ -120,6 +191,60 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Add milestone
+  const onAddMilestone = async (data: any) => {
+    setAddMilestoneLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/milestones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || "Failed to add milestone");
+      setMilestones((prev) => [...prev, responseData]);
+      resetMilestone();
+      setAddMilestoneOpen(false);
+    } catch (e: any) {
+      setMilestoneError(e.message || "Failed to add milestone");
+    } finally {
+      setAddMilestoneLoading(false);
+    }
+  };
+
+  // Mark milestone as complete
+  const markMilestoneComplete = async (milestoneId: string) => {
+    try {
+      const res = await fetch(`/api/milestones/${milestoneId}/complete`, { method: "PATCH" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark milestone as complete");
+      setMilestones((prev) => prev.map(m => m.id === milestoneId ? { ...m, completed: true } : m));
+    } catch (e: any) {
+      setMilestoneError(e.message || "Failed to mark milestone as complete");
+    }
+  };
+
+  // Add funding
+  const onAddFunding = async (data: any) => {
+    setAddFundingLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/funding`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || "Failed to add funding");
+      setFundings((prev) => [...prev, responseData]);
+      resetFunding();
+      setAddFundingOpen(false);
+    } catch (e: any) {
+      setFundingError(e.message || "Failed to add funding");
+    } finally {
+      setAddFundingLoading(false);
+    }
+  };
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading project...</div>;
   if (error) return <div className="flex min-h-screen items-center justify-center text-destructive">{error}</div>;
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
@@ -170,6 +295,139 @@ export default function ProjectDetailsPage() {
           </div>
         </CardFooter>
       </Card>
+
+      {/* Milestones Section */}
+      <div className="w-full max-w-lg mt-8 animate-fade-in">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Milestones</CardTitle>
+            <Button size="sm" onClick={() => setAddMilestoneOpen(true)}>Add Milestone</Button>
+          </CardHeader>
+          <CardContent>
+            {milestoneLoading ? (
+              <div className="text-muted-foreground">Loading milestones...</div>
+            ) : milestoneError ? (
+              <div className="text-destructive">{milestoneError}</div>
+            ) : milestones.length === 0 ? (
+              <div className="text-muted-foreground">No milestones yet.</div>
+            ) : (
+              <ul className="space-y-3">
+                {milestones.map(milestone => (
+                  <li key={milestone.id} className="flex items-center justify-between p-3 rounded bg-muted">
+                    <div>
+                      <div className="font-medium">{milestone.title}</div>
+                      <div className="text-sm text-muted-foreground">{milestone.description}</div>
+                      {milestone.dueDate && <div className="text-xs text-muted-foreground">Due: {milestone.dueDate.slice(0, 10)}</div>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {milestone.completed ? (
+                        <span className="text-green-600 text-xs font-semibold">Completed</span>
+                      ) : (
+                        <Button size="sm" variant="success" onClick={() => markMilestoneComplete(milestone.id)}>Mark Complete</Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+        {/* Add Milestone Dialog */}
+        <Dialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Milestone</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmitMilestone(onAddMilestone)} className="space-y-4">
+              <div>
+                <Label htmlFor="milestone-title">Title</Label>
+                <Input id="milestone-title" {...registerMilestone("title", { required: "Title is required" })} />
+                {milestoneErrors.title && <p className="text-sm text-destructive mt-1">{milestoneErrors.title.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="milestone-description">Description</Label>
+                <Textarea id="milestone-description" {...registerMilestone("description")} />
+              </div>
+              <div>
+                <Label htmlFor="milestone-dueDate">Due Date</Label>
+                <Input id="milestone-dueDate" type="date" {...registerMilestone("dueDate")} />
+              </div>
+              <DialogFooterUI className="flex gap-2">
+                <Button type="submit" disabled={addMilestoneLoading || isSubmittingMilestone}>{addMilestoneLoading ? "Adding..." : "Add"}</Button>
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">Cancel</Button>
+                </DialogClose>
+              </DialogFooterUI>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Funding Section */}
+      <div className="w-full max-w-lg mt-8 animate-fade-in">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Funding</CardTitle>
+            <Button size="sm" onClick={() => setAddFundingOpen(true)}>Log Funding</Button>
+          </CardHeader>
+          <CardContent>
+            {fundingLoading ? (
+              <div className="text-muted-foreground">Loading funding...</div>
+            ) : fundingError ? (
+              <div className="text-destructive">{fundingError}</div>
+            ) : fundings.length === 0 ? (
+              <div className="text-muted-foreground">No funding entries yet.</div>
+            ) : (
+              <ul className="space-y-3">
+                {fundings.map(funding => (
+                  <li key={funding.id} className="flex items-center justify-between p-3 rounded bg-muted">
+                    <div>
+                      <div className="font-medium">{funding.amount} {funding.currency}</div>
+                      {funding.source && <div className="text-xs text-muted-foreground">Source: {funding.source}</div>}
+                      {funding.txHash && <div className="text-xs text-muted-foreground">Tx: {funding.txHash}</div>}
+                      {funding.receivedAt && <div className="text-xs text-muted-foreground">Received: {funding.receivedAt.slice(0, 10)}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+        {/* Add Funding Dialog */}
+        <Dialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Log Funding</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
+              <div>
+                <Label htmlFor="funding-amount">Amount</Label>
+                <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
+                {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="funding-currency">Currency</Label>
+                <Input id="funding-currency" {...registerFunding("currency", { required: "Currency is required" })} />
+                {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="funding-source">Source</Label>
+                <Input id="funding-source" {...registerFunding("source")} />
+              </div>
+              <div>
+                <Label htmlFor="funding-txHash">Transaction Hash</Label>
+                <Input id="funding-txHash" {...registerFunding("txHash")} />
+              </div>
+              <DialogFooterUI className="flex gap-2">
+                <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Logging..." : "Log"}</Button>
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">Cancel</Button>
+                </DialogClose>
+              </DialogFooterUI>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
