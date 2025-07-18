@@ -245,6 +245,59 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Roles state and form
+  const [roles, setRoles] = useState<any[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
+  const { register: registerRole, handleSubmit: handleSubmitRole, reset: resetRole, formState: { errors: roleErrors, isSubmitting: isClaiming } } = useForm();
+
+  // MOCK USER ID (replace with real user/session logic when available)
+  const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec";
+
+  useEffect(() => {
+    async function fetchRoles() {
+      setRolesLoading(true);
+      setRolesError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/roles`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch roles");
+        setRoles(data);
+      } catch (e: any) {
+        setRolesError(e.message || "Failed to load roles");
+      } finally {
+        setRolesLoading(false);
+      }
+    }
+    if (projectId) fetchRoles();
+  }, [projectId]);
+
+  const onClaimRole = async (data: any) => {
+    setClaimError(null);
+    setClaimSuccess(false);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: MOCK_USER_ID,
+          roleTitle: data.roleTitle,
+          description: data.description,
+        }),
+      });
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || "Failed to claim role");
+      setClaimSuccess(true);
+      resetRole();
+      // Refresh roles list
+      setRoles((prev) => [...prev, responseData]);
+    } catch (err: any) {
+      setClaimError(err.message || "Something went wrong");
+    }
+  };
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading project...</div>;
   if (error) return <div className="flex min-h-screen items-center justify-center text-destructive">{error}</div>;
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
@@ -427,6 +480,56 @@ export default function ProjectDetailsPage() {
             </form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Roles Section */}
+      <div className="w-full max-w-lg mt-8 animate-fade-in">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Roles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {rolesLoading ? (
+              <div className="text-muted-foreground">Loading roles...</div>
+            ) : rolesError ? (
+              <div className="text-destructive">{rolesError}</div>
+            ) : roles.length === 0 ? (
+              <div className="text-muted-foreground">No roles claimed yet.</div>
+            ) : (
+              <ul className="space-y-3">
+                {roles.map((role) => (
+                  <li key={role.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 rounded bg-muted">
+                    <div>
+                      <div className="font-medium">{role.roleTitle}</div>
+                      <div className="text-sm text-muted-foreground">{role.description}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Claimed by: <span className="font-semibold">{role.user?.name || role.user?.walletAddress || "Unknown"}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col md:items-end gap-1 mt-2 md:mt-0">
+                      <span className={`text-xs font-semibold ${role.verified ? "text-green-600" : "text-yellow-600"}`}>{role.verified ? "Verified" : "Unverified"}</span>
+                      {role.verifications && role.verifications.length > 0 && (
+                        <span className="text-xs text-muted-foreground">{role.verifications.length} verification{role.verifications.length > 1 ? "s" : ""}</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+          <CardFooter className="flex-col items-start gap-2">
+            <form onSubmit={handleSubmitRole(onClaimRole)} className="w-full space-y-4">
+              <Label htmlFor="roleTitle">Claim a Role</Label>
+              <Input id="roleTitle" placeholder="Role title (e.g. Frontend Dev)" {...registerRole("roleTitle", { required: "Role title is required" })} />
+              {roleErrors.roleTitle && <p className="text-sm text-destructive mt-1">{roleErrors.roleTitle.message as string}</p>}
+              <Textarea id="roleDescription" placeholder="Describe your contribution..." {...registerRole("description", { required: "Description is required" })} />
+              {roleErrors.description && <p className="text-sm text-destructive mt-1">{roleErrors.description.message as string}</p>}
+              {claimError && <p className="text-sm text-destructive mt-2">{claimError}</p>}
+              {claimSuccess && <p className="text-sm text-green-600 mt-2">Role claimed successfully!</p>}
+              <Button type="submit" className="w-full" disabled={isClaiming}>{isClaiming ? "Claiming..." : "Claim Role"}</Button>
+            </form>
+          </CardFooter>
+        </Card>
       </div>
 
       {/* Edit Dialog */}
