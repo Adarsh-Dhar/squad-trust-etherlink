@@ -131,3 +131,18 @@ model CredibilityScore {
   lastUpdated    DateTime @default(now())
   details        Json?    // breakdown of scoring logic
 }
+
+model Dispute {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  status      DisputeStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum DisputeStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
