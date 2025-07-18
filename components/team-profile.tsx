@@ -5,6 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, CheckCircle, Clock, DollarSign, Award } from "lucide-react"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { CreateProjectForm } from "@/components/create-project-form";
 
 // Mock data for team profile
 const teamData = {
@@ -160,6 +168,23 @@ export function TeamProfile({ teamId }: { teamId: string }) {
 
         {/* Past Projects */}
         <TabsContent value="projects" className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Projects</h2>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="primary">Create Project</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a New Project</DialogTitle>
+                  <DialogDescription>
+                    Add a new project to your team. Fill in the details below.
+                  </DialogDescription>
+                </DialogHeader>
+                <CreateProjectForm teamId={teamId} />
+              </DialogContent>
+            </Dialog>
+          </div>
           <div className="grid gap-6">
             {team.pastProjects.map((project, index) => (
               <Card key={project.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>

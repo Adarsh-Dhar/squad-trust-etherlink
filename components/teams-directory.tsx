@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, Filter } from "lucide-react"
 import Link from "next/link"
-import { Dialog } from "@/components/ui/dialog"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { CreateProjectForm } from "@/components/create-project-form";
 
 // MOCK USER ID (replace with real user/session logic when available)
 const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec" // Test User
@@ -187,58 +188,79 @@ export function TeamsDirectory() {
               className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <Link href={`/teams/${team.id}`}>
-                <CardContent className="p-6">
-                  {/* Team Header */}
-                  <div className="flex items-center space-x-4 mb-4">
-                    <div className="text-3xl">🏢</div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
-                      <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
-                    </div>
+              <CardContent className="p-6">
+                {/* Team Header */}
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="text-3xl">🏢</div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
+                    <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
                   </div>
+                </div>
 
-                  {/* Trust Score */}
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Trust Score</span>
-                      <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div
-                        className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
-                        style={{ width: `${team.trustScore || 0}%` }}
-                      ></div>
-                    </div>
+                {/* Trust Score */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Trust Score</span>
+                    <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
                   </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
-                      <div className="text-xs text-muted-foreground">Projects</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-primary">{team.membersCount}</div>
-                      <div className="text-xs text-muted-foreground">Members</div>
-                    </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div
+                      className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
+                      style={{ width: `${team.trustScore || 0}%` }}
+                    ></div>
                   </div>
+                </div>
 
-                  {/* Join/Leave Button */}
-                  <div className="flex justify-end gap-2">
-                    {!team.isMember ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={joining === team.id}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          handleJoin(team.id)
-                        }}
-                      >
-                        {joining === team.id ? "Joining..." : "Join"}
-                      </Button>
-                    ) : (
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+                  <div>
+                    <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
+                    <div className="text-xs text-muted-foreground">Projects</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-primary">{team.membersCount}</div>
+                    <div className="text-xs text-muted-foreground">Members</div>
+                  </div>
+                </div>
+
+                {/* Join/Leave/Details Buttons */}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    asChild
+                  >
+                    <Link href={`/teams/${team.id}`}>Details</Link>
+                  </Button>
+                  {!team.isMember ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={joining === team.id}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleJoin(team.id)
+                      }}
+                    >
+                      {joining === team.id ? "Joining..." : "Join"}
+                    </Button>
+                  ) : (
+                    <>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="primary">Create Project</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Create a New Project</DialogTitle>
+                            <DialogDescription>
+                              Add a new project to your team. Fill in the details below.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <CreateProjectForm teamId={team.id} redirectToProjects />
+                        </DialogContent>
+                      </Dialog>
                       <Button
                         size="sm"
                         variant="destructive"
@@ -250,10 +272,10 @@ export function TeamsDirectory() {
                       >
                         {leaving === team.id ? "Leaving..." : "Leave"}
                       </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Link>
+                    </>
+                  )}
+                </div>
+              </CardContent>
             </Card>
           ))}
         </div>
