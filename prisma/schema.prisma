@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  walletAddress  String    @unique
+  name           String?
+  bio            String?
+  github         String?
+  linkedin       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  teams          TeamMember[]
+  roles          ContributorRole[]
+  verifications  Verification[]
+  credibility    CredibilityScore?
+}
+
+model Team {
+  id             String       @id @default(cuid())
+  name           String
+  bio            String?
+  website        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  members        TeamMember[]
+  projects       Project[]
+  credibility    CredibilityScore?
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  role      String   // "admin", "member", etc.
+  joinedAt  DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  team           Team         @relation(fields: [teamId], references: [id])
+  teamId         String
+  title          String
+  description    String
+  githubRepo     String?
+  liveUrl        String?
+  deliveryHash   String? // hash of final delivery artifact (IPFS, Arweave, etc.)
+  status         ProjectStatus @default(ONGOING)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  milestones     Milestone[]
+  roles          ContributorRole[]
+  funding        Funding[]
+}
+
+enum ProjectStatus {
+  ONGOING
+  COMPLETED
+  FAILED
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  title       String
+  description String?
+  completed   Boolean  @default(false)
+  dueDate     DateTime?
+}
+
+model ContributorRole {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  project      Project  @relation(fields: [projectId], references: [id])
+  projectId    String
+  roleTitle    String   // e.g., "Frontend Dev", "Smart Contract"
+  description  String?
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  verifications Verification[]
+}
+
+model Verification {
+  id                String            @id @default(cuid())
+  verifier          User              @relation(fields: [verifierId], references: [id])
+  verifierId        String
+  contributorRole   ContributorRole   @relation(fields: [roleId], references: [id])
+  roleId            String
+  comment           String?
+  createdAt         DateTime          @default(now())
+
+  @@unique([verifierId, roleId])
+}
+
+model Funding {
+  id            String   @id @default(cuid())
+  project       Project  @relation(fields: [projectId], references: [id])
+  projectId     String
+  source        String   // Gitcoin, DAO, VC, etc.
+  amount        Float
+  currency      String   // ETH, USDC, etc.
+  txHash        String?
+  receivedAt    DateTime @default(now())
+  distribution  Json?    // optional: breakdown among contributors
+}
+
+model CredibilityScore {
+  id             String   @id @default(cuid())
+  user           User?    @relation(fields: [userId], references: [id])
+  userId         String?  @unique
+  team           Team?    @relation(fields: [teamId], references: [id])
+  teamId         String?  @unique
+
+  score          Float    @default(0.0)
+  lastUpdated    DateTime @default(now())
+  details        Json?    // breakdown of scoring logic
+}
