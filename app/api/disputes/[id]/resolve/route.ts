@@ -2,11 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+  const { id } = await context.params;
   try {
     const dispute = await prisma.dispute.update({
-      where: { id: params.id },
-      data: { resolved: true },
+      where: { id },
+      data: { status: 'RESOLVED' },
     });
     return NextResponse.json(dispute);
   } catch (error: any) {
