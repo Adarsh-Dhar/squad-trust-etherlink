@@ -128,12 +128,13 @@ export function TeamsDirectory() {
         throw new Error("User not found")
       }
       const user = await userRes.json()
-
+      console.log("user", user)
       const res = await fetch(`/api/teams/${teamId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, role: "member" }),
       })
+      console.log("res", res)
       if (!res.ok) {
         const err = await res.json()
         if (res.status === 409) {

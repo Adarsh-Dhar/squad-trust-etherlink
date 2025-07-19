@@ -38,15 +38,20 @@ model Team {
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
-  team      Team     @relation(fields: [teamId], references: [id])
+  id        String           @id @default(cuid())
+  team      Team             @relation(fields: [teamId], references: [id])
   teamId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
   userId    String
-  role      String   // "admin", "member", etc.
-  joinedAt  DateTime @default(now())
+  role      TeamMemberRole   @default(MEMBER)
+  joinedAt  DateTime         @default(now())
 
   @@unique([teamId, userId])
+}
+
+enum TeamMemberRole {
+  ADMIN
+  MEMBER
 }
 
 model Project {

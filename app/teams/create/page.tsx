@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Wallet } from "lucide-react";
+import { useWallet } from "@/hooks/useWallet";
 
 interface TeamFormValues {
   name: string;
@@ -23,6 +26,7 @@ export default function CreateTeamPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { address, isConnected, connectWallet, isConnecting } = useWallet();
 
   const addTag = () => {
     const tag = tagInput.trim();
@@ -38,11 +42,22 @@ export default function CreateTeamPage() {
 
   const onSubmit = async (data: TeamFormValues) => {
     setSubmitError(null);
+    
+    // Check if wallet is connected
+    if (!isConnected || !address) {
+      setSubmitError("Please connect your wallet to create a team.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/teams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, tags }),
+        body: JSON.stringify({ 
+          ...data, 
+          tags,
+          createdBy: address 
+        }),
       });
       const responseData = await res.json();
       console.log("Team creation response:", responseData);
@@ -56,11 +71,52 @@ export default function CreateTeamPage() {
     }
   };
 
+  // Show wallet connection prompt if not connected
+  if (!isConnected) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-2">
+        <Card className="w-full max-w-lg animate-fade-in">
+          <CardHeader>
+            <CardTitle>Connect Your Wallet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You need to connect your wallet to create a team.
+              </AlertDescription>
+            </Alert>
+            <Button 
+              onClick={connectWallet} 
+              className="w-full mt-4"
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Connecting...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Wallet className="h-5 w-5" />
+                  <span>Connect Wallet</span>
+                </div>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-2">
       <Card className="w-full max-w-lg animate-fade-in">
         <CardHeader>
           <CardTitle>Create a New Team</CardTitle>
+          <div className="text-sm text-muted-foreground">
+            Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -112,7 +168,12 @@ export default function CreateTeamPage() {
                 ))}
               </div>
             </div>
-            {submitError && <p className="text-sm text-destructive mt-2">{submitError}</p>}
+            {submitError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{submitError}</AlertDescription>
+              </Alert>
+            )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create Team"}
             </Button>

@@ -1,18 +1,20 @@
 // POST, GET /teams/:teamId/members
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isTeamAdmin } from '@/lib/teams';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {
     const { teamId } = await params;
     const data = await req.json();
+    const { userId, role, grantedBy } = data;
     
     // Check if the user is already a member
     const existingMember = await prisma.teamMember.findUnique({
       where: {
         teamId_userId: {
           teamId,
-          userId: data.userId,
+          userId,
         },
       },
     });
@@ -21,10 +23,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tea
       return NextResponse.json({ error: 'User is already a member of this team.' }, { status: 409 });
     }
 
+    // If trying to grant admin role, check if the granter is an admin
+    if (role === 'ADMIN' && grantedBy) {
+      const isGranterAdmin = await isTeamAdmin(teamId, grantedBy);
+      if (!isGranterAdmin) {
+        return NextResponse.json({ error: 'Only admins can grant admin status to other members.' }, { status: 403 });
+      }
+    }
+
+    // Normalize role to ensure it's a valid enum value
+    const normalizedRole = role?.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'MEMBER';
+
     const member = await prisma.teamMember.create({
       data: {
-        ...data,
+        userId,
+        role: normalizedRole,
         teamId,
+      },
+      include: {
+        user: true,
       },
     });
     return NextResponse.json(member);
