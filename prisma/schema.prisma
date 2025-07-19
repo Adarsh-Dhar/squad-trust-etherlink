@@ -66,6 +66,8 @@ model Project {
   roles          ContributorRole[]
   funding        Funding[]
   signatures     ProjectSignature[]
+  investorSignatures InvestorSignature[]
+  milestoneInvestorSignatures MilestoneInvestorSignature[]
 }
 
 enum ProjectStatus {
@@ -105,6 +107,7 @@ model Milestone {
   updatedAt       DateTime         @updatedAt
 
   signatures      TaskSignature[]
+  investorSignatures MilestoneInvestorSignature[]
 }
 
 enum MilestoneStatus {
@@ -213,6 +216,8 @@ model Funding {
   txHash        String?
   receivedAt    DateTime @default(now())
   distribution  Json?    // optional: breakdown among contributors
+  
+  investorSignatures InvestorSignature[]
 }
 
 model CredibilityScore {
@@ -267,6 +272,44 @@ model TaskSignature {
   requiredSignatures Int
   totalMembers      Int
   status            SignatureStatus @default(PENDING)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([milestoneId])
+}
+
+model InvestorSignature {
+  id                String    @id @default(cuid())
+  project           Project   @relation(fields: [projectId], references: [id])
+  projectId         String
+  funding           Funding   @relation(fields: [fundingId], references: [id])
+  fundingId         String
+  investorAddress   String    // Wallet address of the investor
+  signatures        Json      // Array of InvestorSignatureData objects
+  requiredSignatures Int
+  totalInvestors    Int
+  status            SignatureStatus @default(PENDING)
+  amount            Float
+  currency          String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([fundingId])
+}
+
+model MilestoneInvestorSignature {
+  id                String    @id @default(cuid())
+  milestone         Milestone @relation(fields: [milestoneId], references: [id])
+  milestoneId       String
+  project           Project   @relation(fields: [projectId], references: [id])
+  projectId         String
+  investorAddress   String    // Wallet address of the investor
+  signatures        Json      // Array of InvestorSignatureData objects
+  requiredSignatures Int
+  totalInvestors    Int
+  status            SignatureStatus @default(PENDING)
+  amount            Float
+  currency          String
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

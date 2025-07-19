@@ -38,6 +38,7 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { disputeUtils } from "@/lib/dispute";
 
 interface Dispute {
   id: string;
@@ -48,31 +49,53 @@ interface Dispute {
   updatedAt: string;
 }
 
+interface DisputeStats {
+  total: number;
+  pending: number;
+  resolved: number;
+  rejected: number;
+  autoResolved: number;
+  autoIgnored: number;
+}
+
 export default function DisputesPage() {
   const { toast } = useToast();
   const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [stats, setStats] = useState<DisputeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolveId, setResolveId] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [autoResolving, setAutoResolving] = useState(false);
 
-  // Fetch disputes
+  // Fetch disputes and stats
   useEffect(() => {
-    async function fetchDisputes() {
+    async function fetchData() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/disputes");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to fetch disputes");
-        setDisputes(data);
+        const [disputesRes, statsRes] = await Promise.all([
+          fetch("/api/disputes"),
+          fetch("/api/disputes/auto-resolve"),
+        ]);
+        
+        const disputesData = await disputesRes.json();
+        const statsData = await statsRes.json();
+        
+        if (!disputesRes.ok) throw new Error(disputesData.error || "Failed to fetch disputes");
+        if (!statsRes.ok) throw new Error(statsData.error || "Failed to fetch stats");
+        
+        setDisputes(disputesData);
+        setStats(statsData.stats);
       } catch (e: any) {
         setError(e.message || "Failed to load disputes");
       } finally {
         setLoading(false);
       }
     }
-    fetchDisputes();
+    fetchData();
   }, []);
 
   // Form for raising dispute
@@ -118,6 +141,57 @@ export default function DisputesPage() {
     }
   };
 
+  // Reject dispute
+  const handleReject = async (id: string) => {
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/disputes/${id}/reject`, { 
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Manually rejected" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reject dispute");
+      setDisputes((prev) => prev.map((d) => (d.id === id ? { ...d, status: "REJECTED" } : d)));
+      toast({ title: "Dispute rejected", description: "The dispute has been marked as rejected." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to reject dispute.", variant: "destructive" });
+    } finally {
+      setRejecting(false);
+      setRejectId(null);
+    }
+  };
+
+  // Auto-resolve all expired disputes
+  const handleAutoResolve = async () => {
+    setAutoResolving(true);
+    try {
+      const res = await fetch("/api/disputes/auto-resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "both" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to auto-resolve disputes");
+      
+      // Refresh disputes list
+      const disputesRes = await fetch("/api/disputes");
+      const disputesData = await disputesRes.json();
+      if (disputesRes.ok) {
+        setDisputes(disputesData);
+      }
+      
+      toast({ 
+        title: "Auto-resolution completed", 
+        description: data.message || "Expired disputes have been processed." 
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to auto-resolve disputes.", variant: "destructive" });
+    } finally {
+      setAutoResolving(false);
+    }
+  };
+
   // Status badge color
   const statusBadge = (status: Dispute["status"]) => {
     switch (status) {
@@ -132,9 +206,64 @@ export default function DisputesPage() {
     }
   };
 
+  // Get expiration info
+  const getExpirationInfo = (dispute: Dispute) => {
+    if (dispute.status !== "PENDING") return null;
+    
+    const daysUntilExpiry = disputeUtils.getDaysUntilExpiry(dispute, 14);
+    const isExpired = disputeUtils.isExpired(dispute, 14);
+    
+    if (isExpired) {
+      return <span className="text-red-500 text-sm">Expired</span>;
+    }
+    
+    if (daysUntilExpiry <= 3) {
+      return <span className="text-orange-500 text-sm">{daysUntilExpiry} days left</span>;
+    }
+    
+    return <span className="text-muted-foreground text-sm">{daysUntilExpiry} days left</span>;
+  };
+
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-3xl animate-fade-in">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-6xl animate-fade-in">
       <h1 className="text-4xl font-bold mb-8 text-center">Disputes</h1>
+
+      {/* Stats Section */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-card border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
+            <div className="text-sm text-muted-foreground">Total</div>
+          </div>
+          <div className="bg-card border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
+            <div className="text-sm text-muted-foreground">Pending</div>
+          </div>
+          <div className="bg-card border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{stats.resolved}</div>
+            <div className="text-sm text-muted-foreground">Resolved</div>
+          </div>
+          <div className="bg-card border rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+            <div className="text-sm text-muted-foreground">Rejected</div>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-resolve Button */}
+      <div className="mb-8 text-center">
+        <Button 
+          onClick={handleAutoResolve} 
+          disabled={autoResolving}
+          variant="outline"
+          className="mb-4"
+        >
+          {autoResolving ? "Processing..." : "Auto-resolve Expired Disputes"}
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          Automatically resolves disputes older than 14 days
+        </p>
+      </div>
 
       {/* Raise Dispute Form */}
       <div className="bg-card border rounded-xl p-8 shadow mb-12">
@@ -190,7 +319,8 @@ export default function DisputesPage() {
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead></TableHead>
+                <TableHead>Expiration</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,38 +329,71 @@ export default function DisputesPage() {
                   <TableCell className="font-medium max-w-[180px] truncate" title={d.title}>{d.title}</TableCell>
                   <TableCell className="max-w-[260px] truncate" title={d.description}>{d.description}</TableCell>
                   <TableCell>{statusBadge(d.status)}</TableCell>
-                  <TableCell>{new Date(d.createdAt).toLocaleString()}</TableCell>
+                  <TableCell>{disputeUtils.formatDisputeAge(new Date(d.createdAt))}</TableCell>
+                  <TableCell>{getExpirationInfo(d)}</TableCell>
                   <TableCell>
                     {d.status === "PENDING" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" onClick={() => setResolveId(d.id)} disabled={resolving}>
-                            Resolve
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Resolve Dispute</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to mark this dispute as resolved?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel asChild>
-                              <Button variant="ghost">Cancel</Button>
-                            </AlertDialogCancel>
-                            <AlertDialogAction asChild>
-                              <Button
-                                variant="default"
-                                onClick={() => handleResolve(d.id)}
-                                disabled={resolving}
-                              >
-                                {resolving && resolveId === d.id ? "Resolving..." : "Yes, Resolve"}
-                              </Button>
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex gap-2">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" onClick={() => setResolveId(d.id)} disabled={resolving}>
+                              Resolve
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Resolve Dispute</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to mark this dispute as resolved?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel asChild>
+                                <Button variant="ghost">Cancel</Button>
+                              </AlertDialogCancel>
+                              <AlertDialogAction asChild>
+                                <Button
+                                  variant="default"
+                                  onClick={() => handleResolve(d.id)}
+                                  disabled={resolving}
+                                >
+                                  {resolving && resolveId === d.id ? "Resolving..." : "Yes, Resolve"}
+                                </Button>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive" onClick={() => setRejectId(d.id)} disabled={rejecting}>
+                              Reject
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reject Dispute</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reject this dispute? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel asChild>
+                                <Button variant="ghost">Cancel</Button>
+                              </AlertDialogCancel>
+                              <AlertDialogAction asChild>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => handleReject(d.id)}
+                                  disabled={rejecting}
+                                >
+                                  {rejecting && rejectId === d.id ? "Rejecting..." : "Yes, Reject"}
+                                </Button>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
