@@ -10,6 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogFooter as UIDialogFooter, DialogClose as UIDialogClose } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { SignatureWidget } from "@/components/signature/SignatureWidget";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Calendar, 
+  DollarSign, 
+  Users, 
+  FileText, 
+  Edit, 
+  Trash2, 
+  CheckCircle,
+  ExternalLink,
+  Github,
+  Globe
+} from "lucide-react";
 
 interface Project {
   id: string;
@@ -160,24 +174,6 @@ export default function ProjectDetailsPage() {
       setVerifyLoading(false);
       setTimeout(closeVerifyRole, 1000);
     }, 1000);
-    // Uncomment below when endpoint is implemented
-    /*
-    try {
-      const res = await fetch(`/api/roles/${verifyRoleId}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verifierId: MOCK_USER_ID, comment: verifyComment }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to verify role");
-      setVerifySuccess(true);
-      setTimeout(closeVerifyRole, 1000);
-    } catch (e: any) {
-      setVerifyError(e.message || "Failed to verify role");
-    } finally {
-      setVerifyLoading(false);
-    }
-    */
   };
 
   // View verifications handler (stubbed, as endpoint is not implemented)
@@ -193,19 +189,6 @@ export default function ProjectDetailsPage() {
       ]);
       setVerificationsLoading(false);
     }, 800);
-    // Uncomment below when endpoint is implemented
-    /*
-    try {
-      const res = await fetch(`/api/roles/${roleId}/verifications`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch verifications");
-      setVerifications(data);
-    } catch (e: any) {
-      setVerificationsError(e.message || "Failed to load verifications");
-    } finally {
-      setVerificationsLoading(false);
-    }
-    */
   };
   const closeViewVerifications = () => {
     setViewVerificationsRoleId(null);
@@ -443,251 +426,334 @@ export default function ProjectDetailsPage() {
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-2">
-      <Card className="w-full max-w-lg animate-fade-in">
-        <CardHeader>
-          <CardTitle>{project.title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Project Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <Label>Description</Label>
-            <p className="text-muted-foreground mt-1 whitespace-pre-line">{project.description || "No description"}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant={project.status === "COMPLETED" ? "default" : "secondary"}>
+                {project.status || "ONGOING"}
+              </Badge>
+            </div>
           </div>
-          <div>
-            <Label>GitHub Repo</Label>
-            {project.githubRepo ? (
-              <a href={project.githubRepo} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">{project.githubRepo}</a>
-            ) : (
-              <span className="text-muted-foreground text-sm">None</span>
-            )}
-          </div>
-          <div>
-            <Label>Live URL</Label>
-            {project.liveUrl ? (
-              <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline text-sm">{project.liveUrl}</a>
-            ) : (
-              <span className="text-muted-foreground text-sm">None</span>
-            )}
-          </div>
-          <div>
-            <Label>Status</Label>
-            <span className={`ml-2 px-2 py-1 rounded text-xs ${project.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{project.status || "ONGOING"}</span>
-          </div>
-          {successMsg && <div className="text-green-600 text-sm mt-2">{successMsg}</div>}
-          {error && <div className="text-destructive text-sm mt-2">{error}</div>}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-2 items-center">
-          <div className="flex gap-2 w-full">
-            <Button variant="secondary" className="flex-1" onClick={openEdit}>Edit</Button>
-            <Button variant="destructive" className="flex-1" onClick={() => setDeleteOpen(true)}>Delete</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openEdit}>
+              <Edit className="w-4 h-4 mr-2" />
+              Edit
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
             {project.status !== "COMPLETED" && (
-              <Button variant="default" className="flex-1" onClick={handleComplete} disabled={completeLoading}>
-                {completeLoading ? "Marking..." : "Mark as Completed"}
+              <Button size="sm" onClick={handleComplete} disabled={completeLoading}>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {completeLoading ? "Marking..." : "Complete"}
               </Button>
             )}
           </div>
-        </CardFooter>
-      </Card>
-
-      {/* Milestones Section */}
-      <div className="w-full max-w-lg mt-8 animate-fade-in">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Milestones</CardTitle>
-            <Button size="sm" onClick={() => setAddMilestoneOpen(true)}>Add Milestone</Button>
-          </CardHeader>
-          <CardContent>
-            {milestoneLoading ? (
-              <div className="text-muted-foreground">Loading milestones...</div>
-            ) : milestoneError ? (
-              <div className="text-destructive">{milestoneError}</div>
-            ) : milestones.length === 0 ? (
-              <div className="text-muted-foreground">No milestones yet.</div>
-            ) : (
-              <ul className="space-y-3">
-                {milestones.map(milestone => (
-                  <li key={milestone.id} className="flex items-center justify-between p-3 rounded bg-muted">
-                    <div>
-                      <div className="font-medium">{milestone.title}</div>
-                      <div className="text-sm text-muted-foreground">{milestone.description}</div>
-                      {milestone.dueDate && <div className="text-xs text-muted-foreground">Due: {milestone.dueDate.slice(0, 10)}</div>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {milestone.completed ? (
-                        <span className="text-green-600 text-xs font-semibold">Completed</span>
-                      ) : (
-                        <Button size="sm" variant="default" onClick={() => markMilestoneComplete(milestone.id)}>Mark Complete</Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-        {/* Add Milestone Dialog */}
-        <UIDialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen}>
-          <UIDialogContent>
-            <UIDialogHeader>
-              <UIDialogTitle>Add Milestone</UIDialogTitle>
-            </UIDialogHeader>
-            <form onSubmit={handleSubmitMilestone(onAddMilestone)} className="space-y-4">
-              <div>
-                <Label htmlFor="milestone-title">Title</Label>
-                <Input id="milestone-title" {...registerMilestone("title", { required: "Title is required" })} />
-                {milestoneErrors.title && <p className="text-sm text-destructive mt-1">{milestoneErrors.title.message as string}</p>}
-              </div>
-              <div>
-                <Label htmlFor="milestone-description">Description</Label>
-                <Textarea id="milestone-description" {...registerMilestone("description")} />
-              </div>
-              <div>
-                <Label htmlFor="milestone-dueDate">Due Date</Label>
-                <Input id="milestone-dueDate" type="date" {...registerMilestone("dueDate")} />
-              </div>
-              <UIDialogFooter className="flex gap-2">
-                <Button type="submit" disabled={addMilestoneLoading || isSubmittingMilestone}>{addMilestoneLoading ? "Adding..." : "Add"}</Button>
-                <UIDialogClose asChild>
-                  <Button type="button" variant="secondary">Cancel</Button>
-                </UIDialogClose>
-              </UIDialogFooter>
-            </form>
-          </UIDialogContent>
-        </UIDialog>
+        </div>
+        
+        {successMsg && <div className="text-green-600 text-sm mb-4">{successMsg}</div>}
+        {error && <div className="text-destructive text-sm mb-4">{error}</div>}
       </div>
 
-      {/* Funding Section */}
-      <div className="w-full max-w-lg mt-8 animate-fade-in">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Funding</CardTitle>
-            <Button size="sm" onClick={() => setAddFundingOpen(true)}>Log Funding</Button>
-          </CardHeader>
-          <CardContent>
-            {fundingLoading ? (
-              <div className="text-muted-foreground">Loading funding...</div>
-            ) : fundingError ? (
-              <div className="text-destructive">{fundingError}</div>
-            ) : fundings.length === 0 ? (
-              <div className="text-muted-foreground">No funding entries yet.</div>
-            ) : (
-              <ul className="space-y-3">
-                {fundings.map(funding => (
-                  <li key={funding.id} className="flex items-center justify-between p-3 rounded bg-muted">
-                    <div>
-                      <div className="font-medium">{funding.amount} {funding.currency}</div>
-                      {funding.source && <div className="text-xs text-muted-foreground">Source: {funding.source}</div>}
-                      {funding.txHash && <div className="text-xs text-muted-foreground">Tx: {funding.txHash}</div>}
-                      {funding.receivedAt && <div className="text-xs text-muted-foreground">Received: {funding.receivedAt.slice(0, 10)}</div>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-        {/* Add Funding Dialog */}
-        <UIDialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
-          <UIDialogContent>
-            <UIDialogHeader>
-              <UIDialogTitle>Log Funding</UIDialogTitle>
-            </UIDialogHeader>
-            <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
-              <div>
-                <Label htmlFor="funding-amount">Amount</Label>
-                <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
-                {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
-              </div>
-              <div>
-                <Label htmlFor="funding-currency">Currency</Label>
-                <Input id="funding-currency" {...registerFunding("currency", { required: "Currency is required" })} />
-                {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
-              </div>
-              <div>
-                <Label htmlFor="funding-source">Source</Label>
-                <Input id="funding-source" {...registerFunding("source")} />
-              </div>
-              <div>
-                <Label htmlFor="funding-txHash">Transaction Hash</Label>
-                <Input id="funding-txHash" {...registerFunding("txHash")} />
-              </div>
-              <UIDialogFooter className="flex gap-2">
-                <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Logging..." : "Log"}</Button>
-                <UIDialogClose asChild>
-                  <Button type="button" variant="secondary">Cancel</Button>
-                </UIDialogClose>
-              </UIDialogFooter>
-            </form>
-          </UIDialogContent>
-        </UIDialog>
-      </div>
+      {/* Main Content with Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="milestones">Milestones</TabsTrigger>
+          <TabsTrigger value="funding">Funding</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="approval">Approval</TabsTrigger>
+        </TabsList>
 
-      {/* Project Approval Section */}
-      <div className="w-full max-w-lg mt-8 animate-fade-in">
-        <SignatureWidget
-          type="project"
-          id={projectId}
-          title={project?.title || ""}
-          teamId={project?.teamId || ""}
-        />
-      </div>
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Description</Label>
+                <p className="text-gray-600 mt-1 whitespace-pre-line">{project.description || "No description provided"}</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Github className="w-4 h-4" />
+                    GitHub Repository
+                  </Label>
+                  {project.githubRepo ? (
+                    <a href={project.githubRepo} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm flex items-center gap-1 mt-1">
+                      {project.githubRepo}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-gray-500 text-sm">Not provided</span>
+                  )}
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
+                    Live URL
+                  </Label>
+                  {project.liveUrl ? (
+                    <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline text-sm flex items-center gap-1 mt-1">
+                      {project.liveUrl}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-gray-500 text-sm">Not provided</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Roles Section */}
-      <div className="w-full max-w-lg mt-8 animate-fade-in">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Roles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {rolesLoading ? (
-              <div className="text-muted-foreground">Loading roles...</div>
-            ) : rolesError ? (
-              <div className="text-destructive">{rolesError}</div>
-            ) : roles.length === 0 ? (
-              <div className="text-muted-foreground">No roles claimed yet.</div>
-            ) : (
-              <ul className="space-y-3">
-                {roles.map((role) => (
-                  <li key={role.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 rounded bg-muted">
-                    <div>
-                      <div className="font-medium">{role.roleTitle}</div>
-                      <div className="text-sm text-muted-foreground">{role.description}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Claimed by: <span className="font-semibold">{role.user?.name || role.user?.walletAddress || "Unknown"}</span>
+        {/* Milestones Tab */}
+        <TabsContent value="milestones" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Milestones
+              </CardTitle>
+              <Button size="sm" onClick={() => setAddMilestoneOpen(true)}>Add Milestone</Button>
+            </CardHeader>
+            <CardContent>
+              {milestoneLoading ? (
+                <div className="text-muted-foreground">Loading milestones...</div>
+              ) : milestoneError ? (
+                <div className="text-destructive">{milestoneError}</div>
+              ) : milestones.length === 0 ? (
+                <div className="text-muted-foreground">No milestones yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {milestones.map(milestone => (
+                    <div key={milestone.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <div className="font-medium">{milestone.title}</div>
+                        <div className="text-sm text-muted-foreground">{milestone.description}</div>
+                        {milestone.dueDate && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Due: {milestone.dueDate.slice(0, 10)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {milestone.completed ? (
+                          <Badge variant="default" className="bg-green-100 text-green-700">
+                            Completed
+                          </Badge>
+                        ) : (
+                          <Button size="sm" onClick={() => markMilestoneComplete(milestone.id)}>
+                            Mark Complete
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col md:items-end gap-1 mt-2 md:mt-0">
-                      <span className={`text-xs font-semibold ${role.verified ? "text-green-600" : "text-yellow-600"}`}>{role.verified ? "Verified" : "Unverified"}</span>
-                      {role.verifications && role.verifications.length > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => openViewVerifications(role.id)}>
-                          View Verifications ({role.verifications.length})
-                        </Button>
-                      )}
-                      {role.userId === MOCK_USER_ID ? (
-                        <Button size="sm" variant="secondary" onClick={() => openEditRole(role)}>Edit</Button>
-                      ) : (
-                        <Button size="sm" variant="default" onClick={() => openVerifyRole(role.id)}>Verify</Button>
-                      )}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Funding Tab */}
+        <TabsContent value="funding" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                Funding
+              </CardTitle>
+              <Button size="sm" onClick={() => setAddFundingOpen(true)}>Log Funding</Button>
+            </CardHeader>
+            <CardContent>
+              {fundingLoading ? (
+                <div className="text-muted-foreground">Loading funding...</div>
+              ) : fundingError ? (
+                <div className="text-destructive">{fundingError}</div>
+              ) : fundings.length === 0 ? (
+                <div className="text-muted-foreground">No funding entries yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {fundings.map(funding => (
+                    <div key={funding.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <div className="font-medium">{funding.amount} {funding.currency}</div>
+                        {funding.source && (
+                          <div className="text-sm text-muted-foreground">Source: {funding.source}</div>
+                        )}
+                        {funding.txHash && (
+                          <div className="text-xs text-muted-foreground">Tx: {funding.txHash}</div>
+                        )}
+                        {funding.receivedAt && (
+                          <div className="text-xs text-muted-foreground">Received: {funding.receivedAt.slice(0, 10)}</div>
+                        )}
+                      </div>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-          <CardFooter className="flex-col items-start gap-2">
-            <form onSubmit={handleSubmitRole(onClaimRole)} className="w-full space-y-4">
-              <Label htmlFor="roleTitle">Claim a Role</Label>
-              <Input id="roleTitle" placeholder="Role title (e.g. Frontend Dev)" {...registerRole("roleTitle", { required: "Role title is required" })} />
-              {roleErrors.roleTitle && <p className="text-sm text-destructive mt-1">{roleErrors.roleTitle.message as string}</p>}
-              <Textarea id="roleDescription" placeholder="Describe your contribution..." {...registerRole("description", { required: "Description is required" })} />
-              {roleErrors.description && <p className="text-sm text-destructive mt-1">{roleErrors.description.message as string}</p>}
-              {claimError && <p className="text-sm text-destructive mt-2">{claimError}</p>}
-              {claimSuccess && <p className="text-sm text-green-600 mt-2">Role claimed successfully!</p>}
-              <Button type="submit" className="w-full" disabled={isClaiming}>{isClaiming ? "Claiming..." : "Claim Role"}</Button>
-            </form>
-          </CardFooter>
-        </Card>
-      </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent value="roles" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Roles
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rolesLoading ? (
+                <div className="text-muted-foreground">Loading roles...</div>
+              ) : rolesError ? (
+                <div className="text-destructive">{rolesError}</div>
+              ) : roles.length === 0 ? (
+                <div className="text-muted-foreground">No roles claimed yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {roles.map((role) => (
+                    <div key={role.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <div className="font-medium">{role.roleTitle}</div>
+                        <div className="text-sm text-muted-foreground">{role.description}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Claimed by: <span className="font-semibold">{role.user?.name || role.user?.walletAddress || "Unknown"}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0">
+                        <Badge variant={role.verified ? "default" : "secondary"}>
+                          {role.verified ? "Verified" : "Unverified"}
+                        </Badge>
+                        {role.verifications && role.verifications.length > 0 && (
+                          <Button size="sm" variant="outline" onClick={() => openViewVerifications(role.id)}>
+                            View Verifications ({role.verifications.length})
+                          </Button>
+                        )}
+                        {role.userId === MOCK_USER_ID ? (
+                          <Button size="sm" variant="outline" onClick={() => openEditRole(role)}>Edit</Button>
+                        ) : (
+                          <Button size="sm" onClick={() => openVerifyRole(role.id)}>Verify</Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <form onSubmit={handleSubmitRole(onClaimRole)} className="w-full space-y-4">
+                <Label htmlFor="roleTitle">Claim a Role</Label>
+                <Input id="roleTitle" placeholder="Role title (e.g. Frontend Dev)" {...registerRole("roleTitle", { required: "Role title is required" })} />
+                {roleErrors.roleTitle && <p className="text-sm text-destructive mt-1">{roleErrors.roleTitle.message as string}</p>}
+                <Textarea id="roleDescription" placeholder="Describe your contribution..." {...registerRole("description", { required: "Description is required" })} />
+                {roleErrors.description && <p className="text-sm text-destructive mt-1">{roleErrors.description.message as string}</p>}
+                {claimError && <p className="text-sm text-destructive mt-2">{claimError}</p>}
+                {claimSuccess && <p className="text-sm text-green-600 mt-2">Role claimed successfully!</p>}
+                <Button type="submit" className="w-full" disabled={isClaiming}>{isClaiming ? "Claiming..." : "Claim Role"}</Button>
+              </form>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* Approval Tab */}
+        <TabsContent value="approval" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Project Approval
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SignatureWidget
+                type="project"
+                id={projectId}
+                title={project?.title || ""}
+                teamId={project?.teamId || ""}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Add Milestone Dialog */}
+      <UIDialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Add Milestone</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={handleSubmitMilestone(onAddMilestone)} className="space-y-4">
+            <div>
+              <Label htmlFor="milestone-title">Title</Label>
+              <Input id="milestone-title" {...registerMilestone("title", { required: "Title is required" })} />
+              {milestoneErrors.title && <p className="text-sm text-destructive mt-1">{milestoneErrors.title.message as string}</p>}
+            </div>
+            <div>
+              <Label htmlFor="milestone-description">Description</Label>
+              <Textarea id="milestone-description" {...registerMilestone("description")} />
+            </div>
+            <div>
+              <Label htmlFor="milestone-dueDate">Due Date</Label>
+              <Input id="milestone-dueDate" type="date" {...registerMilestone("dueDate")} />
+            </div>
+            <UIDialogFooter className="flex gap-2">
+              <Button type="submit" disabled={addMilestoneLoading || isSubmittingMilestone}>{addMilestoneLoading ? "Adding..." : "Add"}</Button>
+              <UIDialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </UIDialogClose>
+            </UIDialogFooter>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
+
+      {/* Add Funding Dialog */}
+      <UIDialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
+        <UIDialogContent>
+          <UIDialogHeader>
+            <UIDialogTitle>Log Funding</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
+            <div>
+              <Label htmlFor="funding-amount">Amount</Label>
+              <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
+              {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
+            </div>
+            <div>
+              <Label htmlFor="funding-currency">Currency</Label>
+              <Input id="funding-currency" {...registerFunding("currency", { required: "Currency is required" })} />
+              {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
+            </div>
+            <div>
+              <Label htmlFor="funding-source">Source</Label>
+              <Input id="funding-source" {...registerFunding("source")} />
+            </div>
+            <div>
+              <Label htmlFor="funding-txHash">Transaction Hash</Label>
+              <Input id="funding-txHash" {...registerFunding("txHash")} />
+            </div>
+            <UIDialogFooter className="flex gap-2">
+              <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Logging..." : "Log"}</Button>
+              <UIDialogClose asChild>
+                <Button type="button" variant="secondary">Cancel</Button>
+              </UIDialogClose>
+            </UIDialogFooter>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
 
       {/* Edit Dialog */}
       <UIDialog open={editOpen} onOpenChange={setEditOpen}>
