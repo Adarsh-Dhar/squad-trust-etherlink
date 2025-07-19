@@ -65,6 +65,7 @@ model Project {
   milestones     Milestone[]
   roles          ContributorRole[]
   funding        Funding[]
+  signatures     ProjectSignature[]
 }
 
 enum ProjectStatus {
@@ -102,6 +103,8 @@ model Milestone {
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  signatures      TaskSignature[]
 }
 
 enum MilestoneStatus {
@@ -236,5 +239,42 @@ model Dispute {
 enum DisputeStatus {
   PENDING
   RESOLVED
+  REJECTED
+}
+
+model ProjectSignature {
+  id                String    @id @default(cuid())
+  project           Project   @relation(fields: [projectId], references: [id])
+  projectId         String
+  teamId            String
+  signatures        Json      // Array of SignatureData objects
+  requiredSignatures Int
+  totalMembers      Int
+  status            SignatureStatus @default(PENDING)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([projectId])
+}
+
+model TaskSignature {
+  id                String    @id @default(cuid())
+  milestone         Milestone @relation(fields: [milestoneId], references: [id])
+  milestoneId       String
+  projectId         String
+  teamId            String
+  signatures        Json      // Array of SignatureData objects
+  requiredSignatures Int
+  totalMembers      Int
+  status            SignatureStatus @default(PENDING)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([milestoneId])
+}
+
+enum SignatureStatus {
+  PENDING
+  APPROVED
   REJECTED
 }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle, DialogFooter as UIDialogFooter, DialogClose as UIDialogClose } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
+import { SignatureWidget } from "@/components/signature/SignatureWidget";
 
 interface Project {
   id: string;
@@ -619,6 +620,16 @@ export default function ProjectDetailsPage() {
             </form>
           </UIDialogContent>
         </UIDialog>
+      </div>
+
+      {/* Project Approval Section */}
+      <div className="w-full max-w-lg mt-8 animate-fade-in">
+        <SignatureWidget
+          type="project"
+          id={projectId}
+          title={project?.title || ""}
+          teamId={project?.teamId || ""}
+        />
       </div>
 
       {/* Roles Section */}
