@@ -186,7 +186,16 @@ export function TeamsDirectory() {
         const err = await res.json()
         throw new Error(err.error || "Failed to leave team")
       }
-      // Update UI
+
+      // Check if team was deleted by trying to fetch it
+      const teamRes = await fetch(`/api/teams/${teamId}`)
+      if (!teamRes.ok) {
+        // Team was deleted, remove from UI
+        setTeams((prev) => prev.filter((t) => t.id !== teamId))
+        return
+      }
+
+      // Team still exists, update UI
       setTeams((prev) =>
         prev.map((t) =>
           t.id === teamId ? { ...t, membersCount: t.membersCount - 1, isMember: false } : t

@@ -275,12 +275,17 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         throw new Error(err.error || "Failed to leave team");
       }
 
-      // Refresh team data to show updated member list
+      // Check if team was deleted by trying to fetch it
       const teamRes = await fetch(`/api/teams/${teamId}`);
-      if (teamRes.ok) {
-        const updatedTeam = await teamRes.json();
-        setTeam(updatedTeam);
+      if (!teamRes.ok) {
+        // Team was deleted, redirect to teams directory
+        window.location.href = '/teams';
+        return;
       }
+
+      // Team still exists, update team data
+      const updatedTeam = await teamRes.json();
+      setTeam(updatedTeam);
     } catch (e: any) {
       setError(e.message || "Failed to leave team");
     } finally {
