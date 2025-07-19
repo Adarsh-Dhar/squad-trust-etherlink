@@ -1,45 +1,80 @@
 "use client"
 
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { useWallet } from "@/hooks/useWallet";
+import { Wallet, Shield, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+  const router = useRouter();
+  const { connectWallet, isConnecting, error, isConnected } = useWallet();
 
-  const onSubmit = async (data: any) => {
-    // TODO: Integrate with NextAuth or your login API
-    console.log(data);
+  const handleConnectWallet = async () => {
+    await connectWallet();
+    if (isConnected) {
+      router.push("/teams");
+    }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign in to your account</CardTitle>
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mx-auto mb-4">
+            <Shield className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Welcome to SquadTrust</CardTitle>
+          <p className="text-muted-foreground mt-2">
+            Connect your wallet to access your account
+          </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register("email", { required: "Email is required" })} />
-              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message as string}</p>}
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" autoComplete="current-password" {...register("password", { required: "Password is required" })} />
-              {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message as string}</p>}
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Button 
+            onClick={handleConnectWallet} 
+            className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Connecting...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Wallet className="h-5 w-5" />
+                <span>Connect Wallet</span>
+              </div>
+            )}
+          </Button>
+          
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              By connecting your wallet, you agree to our terms of service
+            </p>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 items-center">
-          <span className="text-sm text-muted-foreground">Don&apos;t have an account? <Link href="/auth/signup" className="underline">Sign up</Link></span>
+          <span className="text-sm text-muted-foreground">
+            Don&apos;t have a wallet?{" "}
+            <a 
+              href="https://metamask.io/download/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:text-primary"
+            >
+              Get MetaMask
+            </a>
+          </span>
         </CardFooter>
       </Card>
     </div>

@@ -1,60 +1,87 @@
 "use client"
 
-import Link from "next/link";
-import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { useWallet } from "@/hooks/useWallet";
+import { Wallet, Shield, AlertCircle, Users } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
-  const password = watch("password");
+  const { connectWallet, isConnecting, error, isConnected } = useWallet();
 
-  const onSubmit = async (data: any) => {
-    // TODO: Integrate with your signup API
-    console.log(data);
-    // Simulate successful signup and redirect
-    router.push("/teams");
+  const handleConnectWallet = async () => {
+    await connectWallet();
+    if (isConnected) {
+      router.push("/teams");
+    }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mx-auto mb-4">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Join SquadTrust</CardTitle>
+          <p className="text-muted-foreground mt-2">
+            Connect your wallet to create your account and start building trust
+          </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" type="text" autoComplete="name" {...register("name", { required: "Name is required" })} />
-              {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message as string}</p>}
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <Button 
+            onClick={handleConnectWallet} 
+            className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Creating Account...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Wallet className="h-5 w-5" />
+                <span>Connect Wallet & Sign Up</span>
+              </div>
+            )}
+          </Button>
+          
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              By connecting your wallet, you agree to our terms of service
+            </p>
+            <div className="flex items-center justify-center space-x-4 text-xs text-muted-foreground">
+              <div className="flex items-center space-x-1">
+                <Shield className="h-3 w-3" />
+                <span>Secure</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Wallet className="h-3 w-3" />
+                <span>Web3 Native</span>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register("email", { required: "Email is required" })} />
-              {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message as string}</p>}
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" autoComplete="new-password" {...register("password", { required: "Password is required", minLength: { value: 6, message: "Password must be at least 6 characters" } })} />
-              {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message as string}</p>}
-            </div>
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" type="password" autoComplete="new-password" {...register("confirmPassword", { required: "Please confirm your password", validate: value => value === password || "Passwords do not match" })} />
-              {errors.confirmPassword && <p className="text-sm text-destructive mt-1">{errors.confirmPassword.message as string}</p>}
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Signing up..." : "Sign Up"}
-            </Button>
-          </form>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 items-center">
-          <span className="text-sm text-muted-foreground">Already have an account? <Link href="/auth/login" className="underline">Sign in</Link></span>
+          <span className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <a 
+              href="/auth/login" 
+              className="underline hover:text-primary"
+            >
+              Sign in
+            </a>
+          </span>
         </CardFooter>
       </Card>
     </div>
