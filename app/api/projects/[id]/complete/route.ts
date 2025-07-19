@@ -2,13 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const project = await prisma.project.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: 'COMPLETED' },
     });
-    return NextResponse.json({ message: `Project ${params.id} marked as completed.`, project });
+    return NextResponse.json({ message: `Project ${id} marked as completed.`, project });
   } catch (error: any) {
     if (error.code === 'P2025') {
       // Record not found

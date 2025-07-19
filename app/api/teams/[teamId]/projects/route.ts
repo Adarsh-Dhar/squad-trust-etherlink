@@ -2,13 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(req: NextRequest, { params }: { params: { teamId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {
+    const { teamId } = await params;
     const data = await req.json();
     const project = await prisma.project.create({
       data: {
         ...data,
-        teamId: params.teamId,
+        teamId,
       },
     });
     return NextResponse.json(project);
@@ -17,10 +18,11 @@ export async function POST(req: NextRequest, { params }: { params: { teamId: str
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { teamId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {
+    const { teamId } = await params;
     const projects = await prisma.project.findMany({
-      where: { teamId: params.teamId },
+      where: { teamId },
     });
     return NextResponse.json(projects);
   } catch (error) {

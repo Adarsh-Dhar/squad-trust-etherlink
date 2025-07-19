@@ -359,7 +359,13 @@ export default function ProjectDetailsPage() {
   // Mark milestone as complete
   const markMilestoneComplete = async (milestoneId: string) => {
     try {
-      const res = await fetch(`/api/milestones/${milestoneId}/complete`, { method: "PATCH" });
+      const res = await fetch(`/api/milestones/${milestoneId}/complete`, { 
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to mark milestone as complete");
       setMilestones((prev) => prev.map(m => m.id === milestoneId ? { ...m, completed: true } : m));
@@ -474,7 +480,7 @@ export default function ProjectDetailsPage() {
             <Button variant="secondary" className="flex-1" onClick={openEdit}>Edit</Button>
             <Button variant="destructive" className="flex-1" onClick={() => setDeleteOpen(true)}>Delete</Button>
             {project.status !== "COMPLETED" && (
-              <Button variant="success" className="flex-1" onClick={handleComplete} disabled={completeLoading}>
+              <Button variant="default" className="flex-1" onClick={handleComplete} disabled={completeLoading}>
                 {completeLoading ? "Marking..." : "Mark as Completed"}
               </Button>
             )}
@@ -509,7 +515,7 @@ export default function ProjectDetailsPage() {
                       {milestone.completed ? (
                         <span className="text-green-600 text-xs font-semibold">Completed</span>
                       ) : (
-                        <Button size="sm" variant="success" onClick={() => markMilestoneComplete(milestone.id)}>Mark Complete</Button>
+                        <Button size="sm" variant="default" onClick={() => markMilestoneComplete(milestone.id)}>Mark Complete</Button>
                       )}
                     </div>
                   </li>
@@ -649,7 +655,7 @@ export default function ProjectDetailsPage() {
                       {role.userId === MOCK_USER_ID ? (
                         <Button size="sm" variant="secondary" onClick={() => openEditRole(role)}>Edit</Button>
                       ) : (
-                        <Button size="sm" variant="success" onClick={() => openVerifyRole(role.id)}>Verify</Button>
+                        <Button size="sm" variant="default" onClick={() => openVerifyRole(role.id)}>Verify</Button>
                       )}
                     </div>
                   </li>

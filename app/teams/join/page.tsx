@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function JoinTeamsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
@@ -14,6 +18,13 @@ export default function JoinTeamsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    if (status === "loading") return;
+    
+    if (status === "unauthenticated") {
+      router.push("/auth/login");
+      return;
+    }
+
     fetch("/api/teams")
       .then((res) => res.json())
       .then((data) => {
@@ -21,27 +32,46 @@ export default function JoinTeamsPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [status, router]);
 
   const handleJoin = async (teamId: string) => {
+    if (!session?.user?.walletAddress) {
+      setError("Please log in to join teams.");
+      return;
+    }
+
     setJoining(teamId);
     setError(null);
-    // TODO: Replace with actual userId from session/auth
-    const userId = "demo-user-id";
+    
     try {
+      // First, get the user by wallet address
+      const userRes = await fetch(`/api/users/wallet/${session.user.walletAddress}`);
+      if (!userRes.ok) {
+        throw new Error("User not found");
+      }
+      const user = await userRes.json();
+
       const res = await fetch(`/api/teams/${teamId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, role: "member" }),
+        body: JSON.stringify({ userId: user.id, role: "member" }),
       });
+      
       if (res.ok) {
         setJoined((prev) => [...prev, teamId]);
+        setError(null);
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to join team.");
+        if (res.status === 409) {
+          // User is already a member
+          setJoined((prev) => [...prev, teamId]);
+          setError(null);
+        } else {
+          setError(data.error || "Failed to join team.");
+        }
       }
     } catch (e) {
-      setError("Failed to join team.");
+      setError("Failed to join team. Please make sure you are logged in.");
     }
     setJoining(null);
   };
@@ -50,6 +80,18 @@ export default function JoinTeamsPage() {
     team.name?.toLowerCase().includes(search.toLowerCase()) ||
     team.bio?.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
+        <div className="text-center py-12 text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null; // Will redirect to login
+  }
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-screen">

@@ -21,6 +21,7 @@ model User {
   roles          ContributorRole[]
   verifications  Verification[]
   credibility    CredibilityScore?
+  milestoneVerifications MilestoneVerification[]
 }
 
 model Team {
@@ -73,13 +74,104 @@ enum ProjectStatus {
 }
 
 model Milestone {
-  id          String   @id @default(cuid())
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  title       String
-  description String?
-  completed   Boolean  @default(false)
-  dueDate     DateTime?
+  id              String           @id @default(cuid())
+  project         Project          @relation(fields: [projectId], references: [id])
+  projectId       String
+  title           String
+  description     String?
+  completed       Boolean          @default(false)
+  dueDate         DateTime?
+  
+  // KPI-based fields
+  kpi             String?          // e.g., "Acquire 1,000 users"
+  targetValue     Float?           // 1000
+  achievedValue   Float?           // Updated via oracles
+  kpiCategory     KPICategory?     // Development, Growth, Community, Funding
+  difficulty      DifficultyTier?  // Easy, Medium, Hard
+  verificationMethod String?       // "GitHub Actions", "Google Analytics", etc.
+  oracleSource    String?          // Data source for verification
+  
+  // Staking and verification
+  stakedAmount    Float?           // Tokens locked for ambitious KPIs
+  stakeCurrency   String?          // ETH, USDC, etc.
+  verifiers       MilestoneVerification[]
+  
+  // Status tracking
+  status          MilestoneStatus  @default(PENDING)
+  lastUpdated     DateTime         @default(now())
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  ACHIEVED
+  FAILED
+  AT_RISK
+}
+
+enum KPICategory {
+  DEVELOPMENT
+  GROWTH
+  COMMUNITY
+  FUNDING
+  SECURITY
+  PARTNERSHIP
+}
+
+enum DifficultyTier {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+model MilestoneVerification {
+  id              String    @id @default(cuid())
+  milestone       Milestone @relation(fields: [milestoneId], references: [id])
+  milestoneId     String
+  verifier        User      @relation(fields: [verifierId], references: [id])
+  verifierId      String
+  verificationType VerificationType
+  dataSource      String?   // API endpoint, contract address, etc.
+  verifiedValue   Float?    // Actual value from verification
+  confidence      Float?    // 0-1 confidence score
+  comment         String?
+  createdAt       DateTime  @default(now())
+  
+  @@unique([milestoneId, verifierId, verificationType])
+}
+
+enum VerificationType {
+  AUTOMATED_ORACLE
+  MANUAL_VERIFICATION
+  COMMUNITY_VOTE
+  AUDIT_REPORT
+}
+
+model OracleDataSource {
+  id              String    @id @default(cuid())
+  name            String    // e.g., "Google Analytics", "DefiLlama"
+  apiEndpoint     String?
+  contractAddress String?   // For blockchain-based oracles
+  description     String?
+  isActive        Boolean   @default(true)
+  lastVerified    DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+model KPITemplate {
+  id              String       @id @default(cuid())
+  name            String       // e.g., "DeFi Launch", "NFT Collection"
+  category        KPICategory
+  kpis            Json         // Array of KPI definitions
+  difficulty      DifficultyTier
+  description     String?
+  isPublic        Boolean      @default(true)
+  createdBy       String?      // Team ID or null for system templates
+  createdAt       DateTime     @default(now())
 }
 
 model ContributorRole {

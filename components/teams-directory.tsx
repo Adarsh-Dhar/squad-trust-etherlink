@@ -9,11 +9,10 @@ import { Search, Filter } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CreateProjectForm } from "@/components/create-project-form";
-
-// MOCK USER ID (replace with real user/session logic when available)
-const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec" // Test User
+import { useSession } from "next-auth/react";
 
 export function TeamsDirectory() {
+  const { data: session, status } = useSession();
   const [searchTerm, setSearchTerm] = useState("")
   const [teams, setTeams] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +30,7 @@ export function TeamsDirectory() {
         const res = await fetch("/api/teams")
         const data = await res.json()
         if (!Array.isArray(data)) throw new Error("Failed to fetch teams")
+        
         // For each team, fetch trust score, members, and projects
         const teamsWithStats = await Promise.all(
           data.map(async (team: any) => {
@@ -38,23 +38,42 @@ export function TeamsDirectory() {
             let trustScore = null
             try {
               const scoreRes = await fetch(`/api/teams/${team.id}/score`)
-              const scoreData = await scoreRes.json()
-              trustScore = scoreData.score ? Math.round(scoreData.score) : null
+              if (scoreRes.ok) {
+                const scoreData = await scoreRes.json()
+                trustScore = scoreData.score ? Math.round(scoreData.score) : null
+              }
             } catch {}
+            
             // Members
             let members = []
             try {
               const membersRes = await fetch(`/api/teams/${team.id}/members`)
-              members = await membersRes.json()
+              if (membersRes.ok) {
+                members = await membersRes.json()
+              }
             } catch {}
+            
             // Projects
             let projects = []
             try {
               const projectsRes = await fetch(`/api/teams/${team.id}/projects`)
-              projects = await projectsRes.json()
+              if (projectsRes.ok) {
+                projects = await projectsRes.json()
+              }
             } catch {}
-            // Is current user a member?
-            const isMember = Array.isArray(members) && members.some((m: any) => m.userId === MOCK_USER_ID)
+            
+            // Check if current user is a member (only if authenticated)
+            let isMember = false
+            if (session?.user?.walletAddress) {
+              try {
+                const userRes = await fetch(`/api/users/wallet/${session.user.walletAddress}`)
+                if (userRes.ok) {
+                  const user = await userRes.json()
+                  isMember = Array.isArray(members) && members.some((m: any) => m.userId === user.id)
+                }
+              } catch {}
+            }
+            
             return {
               ...team,
               trustScore,
@@ -71,8 +90,10 @@ export function TeamsDirectory() {
         setLoading(false)
       }
     }
+    
+    if (status === "loading") return;
     fetchTeams()
-  }, [])
+  }, [status, session])
 
   // Search filter
   const filteredTeams = teams.filter((team) => {
@@ -93,24 +114,46 @@ export function TeamsDirectory() {
 
   // Join team handler
   const handleJoin = async (teamId: string) => {
+    if (!session?.user?.walletAddress) {
+      setError("Please log in to join teams.");
+      return;
+    }
+
     setJoining(teamId)
     setError(null)
     try {
+      // First, get the user by wallet address
+      const userRes = await fetch(`/api/users/wallet/${session.user.walletAddress}`)
+      if (!userRes.ok) {
+        throw new Error("User not found")
+      }
+      const user = await userRes.json()
+
       const res = await fetch(`/api/teams/${teamId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: MOCK_USER_ID, role: "member" }),
+        body: JSON.stringify({ userId: user.id, role: "member" }),
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || "Failed to join team")
-      }
-      // Optionally, refresh members count
-      setTeams((prev) =>
-        prev.map((t) =>
-          t.id === teamId ? { ...t, membersCount: t.membersCount + 1 } : t
+        if (res.status === 409) {
+          // User is already a member, update UI accordingly
+          setTeams((prev) =>
+            prev.map((t) =>
+              t.id === teamId ? { ...t, membersCount: t.membersCount + 1, isMember: true } : t
+            )
+          )
+        } else {
+          throw new Error(err.error || "Failed to join team")
+        }
+      } else {
+        // Update UI
+        setTeams((prev) =>
+          prev.map((t) =>
+            t.id === teamId ? { ...t, membersCount: t.membersCount + 1, isMember: true } : t
+          )
         )
-      )
+      }
     } catch (e: any) {
       setError(e.message || "Failed to join team")
     } finally {
@@ -120,10 +163,22 @@ export function TeamsDirectory() {
 
   // Leave team handler
   const handleLeave = async (teamId: string) => {
+    if (!session?.user?.walletAddress) {
+      setError("Please log in to leave teams.");
+      return;
+    }
+
     setLeaving(teamId)
     setError(null)
     try {
-      const res = await fetch(`/api/teams/${teamId}/members/${MOCK_USER_ID}`, {
+      // First, get the user by wallet address
+      const userRes = await fetch(`/api/users/wallet/${session.user.walletAddress}`)
+      if (!userRes.ok) {
+        throw new Error("User not found")
+      }
+      const user = await userRes.json()
+
+      const res = await fetch(`/api/teams/${teamId}/members/${user.id}`, {
         method: "DELETE",
       })
       if (!res.ok) {
@@ -249,7 +304,7 @@ export function TeamsDirectory() {
                     <>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="primary">Create Project</Button>
+                          <Button size="sm" variant="default">Create Project</Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>

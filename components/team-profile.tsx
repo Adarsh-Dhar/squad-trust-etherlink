@@ -172,7 +172,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             <h2 className="text-2xl font-semibold">Projects</h2>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="primary">Create Project</Button>
+                <Button variant="default">Create Project</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>

@@ -2,10 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { walletAddress: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ walletAddress: string }> }) {
   try {
+    const { walletAddress } = await params;
     const user = await prisma.user.findUnique({
-      where: { walletAddress: params.walletAddress },
+      where: { walletAddress },
       include: { teams: true, roles: true, verifications: true, credibility: true },
     });
     if (!user) {

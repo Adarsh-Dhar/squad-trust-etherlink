@@ -2,13 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const data = await req.json();
     const role = await prisma.contributorRole.create({
       data: {
         ...data,
-        projectId: params.id,
+        projectId: id,
       },
     });
     return NextResponse.json(role);
@@ -17,10 +18,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const roles = await prisma.contributorRole.findMany({
-      where: { projectId: params.id },
+      where: { projectId: id },
       include: { verifications: true, user: true },
     });
     return NextResponse.json(roles);
