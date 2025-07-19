@@ -1,19 +1,32 @@
 // PATCH /milestones/:id/complete
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { VerificationType } from '@prisma/client';
+
+interface MilestoneCompletionBody {
+  achievedValue?: number;
+  verificationData?: {
+    verifierId: string;
+    type?: VerificationType;
+    dataSource?: string;
+    confidence?: number;
+    comment?: string;
+  };
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     
     // Safely parse request body
-    let body = {};
-    let achievedValue, verificationData;
+    let body: MilestoneCompletionBody = {};
+    let achievedValue: number | undefined;
+    let verificationData: MilestoneCompletionBody['verificationData'];
     
     try {
       const contentType = req.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        body = await req.json();
+        body = await req.json() as MilestoneCompletionBody;
         achievedValue = body.achievedValue;
         verificationData = body.verificationData;
       }
@@ -63,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           milestoneId: id,
           verifierId: verificationData.verifierId,
-          verificationType: verificationData.type || 'MANUAL_VERIFICATION',
+          verificationType: verificationData.type || VerificationType.MANUAL_VERIFICATION,
           dataSource: verificationData.dataSource,
           verifiedValue: achievedValue,
           confidence: verificationData.confidence || 1.0,
@@ -75,7 +88,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ 
       message: `Milestone ${id} marked as completed.`, 
       milestone,
-      kpiAchieved: currentMilestone.kpi ? (achievedValue >= (currentMilestone.targetValue || 0)) : null
+      kpiAchieved: currentMilestone.kpi ? (achievedValue !== undefined && achievedValue >= (currentMilestone.targetValue || 0)) : null
     });
   } catch (error: any) {
     console.error('Milestone completion error:', error);
