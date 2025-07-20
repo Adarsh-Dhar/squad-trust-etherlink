@@ -45,7 +45,7 @@ NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
 
 # Blockchain Configuration
-SQUADTRUST_CONTRACT_ADDRESS="0x5FbDB2315678afecb367f032d93F642f64180aa3"
+SQUADTRUST_CONTRACT_ADDRESS="0x0b306bf915c4d645ff596e518faf3f9669b97016"
 RPC_URL="http://127.0.0.1:8545"
 PRIVATE_KEY="your-private-key-for-server-side-transactions"
 ```

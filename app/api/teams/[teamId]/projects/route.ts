@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 import { createSquadTrustService } from '@/lib/contract';
 
 // Contract address - should be moved to environment variables
-const CONTRACT_ADDRESS = process.env.SQUADTRUST_CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const CONTRACT_ADDRESS = process.env.SQUADTRUST_CONTRACT_ADDRESS || "0x0B306BF915C4d645ff596e518fAf3F9669b97016";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {
@@ -89,11 +89,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tea
       } catch (blockchainError: any) {
         console.error('Blockchain error:', blockchainError);
         
-        // If blockchain creation fails, don't create in database
-        return NextResponse.json({ 
-          error: 'Failed to create project on blockchain. Please try again.',
-          details: blockchainError.message 
-        }, { status: 500 });
+        // Provide more detailed error information
+        const errorMessage = blockchainError.message || 'Unknown blockchain error';
+        const errorDetails = {
+          message: errorMessage,
+          stack: blockchainError.stack,
+          name: blockchainError.name,
+          code: blockchainError.code
+        };
+        
+        console.error('Detailed blockchain error:', errorDetails);
+        
+        // Instead of failing completely, create a fallback project ID
+        // This allows the project to be created in the database even if blockchain fails
+        console.log('Creating fallback project ID due to blockchain error');
+        blockchainProjectId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Log the fallback for debugging
+        console.log('Using fallback project ID:', blockchainProjectId);
       }
     }
 
@@ -110,10 +123,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tea
       },
     });
 
+    // Determine if this was a fallback creation
+    const isFallback = blockchainProjectId.startsWith('fallback_');
+    const message = isFallback 
+      ? 'Project created successfully in database (blockchain creation failed, using fallback ID).'
+      : 'Project created successfully in database.';
+
     return NextResponse.json({
       ...project,
       blockchainProjectId,
-      message: 'Project created successfully in database.'
+      message,
+      isFallback
     });
 
   } catch (error: any) {

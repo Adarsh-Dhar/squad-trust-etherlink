@@ -11,45 +11,81 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { Wallet, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getSigner, createSquadTrustService } from "@/lib/contract";
 
 export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: string, redirectToProjects?: boolean }) {
   const router = useRouter();
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [blockchainProjectId, setBlockchainProjectId] = useState<string | null>(null);
   const { address, isConnected, connectWallet, isConnecting } = useWallet();
+
+  // Contract address - should match the one in the API
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
 
   const onSubmit = async (data: any) => {
     setSubmitError(null);
     setSuccess(false);
+    setBlockchainProjectId(null);
     
     // Check if wallet is connected
     if (!isConnected || !address) {
       setSubmitError("Please connect your wallet to create a project on the blockchain.");
       return;
     }
-
+    
     try {
+      // Step 1: Execute blockchain transaction first
+      console.log("Step 1: Creating project on blockchain...");
+      
+      // Get signer from connected wallet
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error("Failed to get wallet signer. Please ensure MetaMask is connected.");
+      }
+
+      // Create SquadTrust service
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Create project on blockchain
+      const requiredConfirmations = 2; // Default value
+      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations);
+      
+      console.log("Blockchain project created with ID:", blockchainProjectId);
+      setBlockchainProjectId(blockchainProjectId);
+
+      // Step 2: Create project in database with blockchain reference
+      console.log("Step 2: Creating project in database...");
+      
       const res = await fetch(`/api/teams/${teamId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...data,
+          title: data.title,
+          description: data.description,
+          githubRepo: data.githubRepo,
+          liveUrl: data.liveUrl,
           walletAddress: address,
-          requiredConfirmations: 2, // Default value
+          requiredConfirmations: requiredConfirmations,
+          blockchainProjectId: blockchainProjectId, // Pass the blockchain project ID
         }),
       });
+      
       const responseData = await res.json();
       if (!res.ok) {
-        throw new Error(responseData.error || "Failed to create project");
+        throw new Error(responseData.error || "Failed to create project in database");
       }
+      
       setSuccess(true);
       reset();
+      
       if (redirectToProjects) {
         router.push("/projects");
       }
       // Optionally, trigger a refresh of the project list here
     } catch (err: any) {
+      console.error("Error creating project:", err);
       setSubmitError(err.message || "Something went wrong");
     }
   };
@@ -115,7 +151,12 @@ export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: stri
         <Input id="liveUrl" type="url" placeholder="https://yourproject.com" {...register("liveUrl")} />
       </div>
       {submitError && <p className="text-sm text-destructive mt-2">{submitError}</p>}
-      {success && <p className="text-sm text-green-600 mt-2">Project created successfully on blockchain!</p>}
+      {blockchainProjectId && (
+        <p className="text-sm text-blue-600 mt-2">
+          ✅ Project created on blockchain with ID: {blockchainProjectId}
+        </p>
+      )}
+      {success && <p className="text-sm text-green-600 mt-2">Project created successfully!</p>}
       <DialogFooter>
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? "Creating on blockchain..." : "Create Project"}
