@@ -71,9 +71,24 @@ export class SquadTrustService {
       const tx = await this.contract.createProject(name, requiredConfirmations);
       const receipt = await tx.wait();
       
-      // Extract project ID from event
-      const event = receipt.events?.find((event: any) => event.event === 'ProjectCreated');
-      return event?.args?.projectId || '';
+      // Look for ProjectCreated event in the logs
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsedLog = this.contract.interface.parseLog(log);
+          return parsedLog?.name === 'ProjectCreated';
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      if (event) {
+        const parsedLog = this.contract.interface.parseLog(event);
+        if (parsedLog) {
+          return parsedLog.args.projectId.toString();
+        }
+      }
+      
+      throw new Error('ProjectCreated event not found in transaction receipt');
     } catch (error) {
       console.error('Error creating project:', error);
       throw error;
@@ -306,6 +321,37 @@ export class SquadTrustService {
 }
 
 // ============ UTILITY FUNCTIONS ============
+
+/**
+ * Get signer from connected wallet
+ * @returns Ethers signer or null if not connected
+ */
+export async function getSigner(): Promise<ethers.Signer | null> {
+  try {
+    // Check if MetaMask is available
+    if (!window.ethereum) {
+      throw new Error('MetaMask is not installed');
+    }
+
+    // Request account access
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+    });
+
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No accounts found');
+    }
+
+    // Create provider and signer
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    
+    return signer;
+  } catch (error) {
+    console.error('Error getting signer:', error);
+    return null;
+  }
+}
 
 /**
  * Create SquadTrust service instance

@@ -13,6 +13,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { use } from "react";
+import { getSigner, createSquadTrustService } from "@/lib/contract";
 
 interface Team {
   id: string;
@@ -36,11 +37,15 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
   const [success, setSuccess] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [blockchainProjectId, setBlockchainProjectId] = useState<string | null>(null);
   const router = useRouter();
   const { address } = useWallet();
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm();
   const selectedTeamId = watch("teamId");
+
+  // Contract address - should match the one in the API
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
   // Check if user is admin of the team
   useEffect(() => {
@@ -106,7 +111,37 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
   const onSubmit = async (data: any) => {
     setSubmitError(null);
     setSuccess(false);
+    setBlockchainProjectId(null);
+    
+    // Check if wallet is connected
+    if (!address) {
+      setSubmitError("Please connect your wallet to create a project on the blockchain.");
+      return;
+    }
+    
     try {
+      // Step 1: Execute blockchain transaction first
+      console.log("Step 1: Creating project on blockchain...");
+      
+      // Get signer from connected wallet
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error("Failed to get wallet signer. Please ensure MetaMask is connected.");
+      }
+
+      // Create SquadTrust service
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Create project on blockchain
+      const requiredConfirmations = 2; // Default value
+      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations);
+      
+      console.log("Blockchain project created with ID:", blockchainProjectId);
+      setBlockchainProjectId(blockchainProjectId);
+
+      // Step 2: Create project in database with blockchain reference
+      console.log("Step 2: Creating project in database...");
+      
       const res = await fetch(`/api/teams/${data.teamId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,19 +150,27 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
           description: data.description,
           githubRepo: data.githubRepo,
           liveUrl: data.liveUrl,
+          walletAddress: address,
+          requiredConfirmations: requiredConfirmations,
+          blockchainProjectId: blockchainProjectId, // Pass the blockchain project ID
         }),
       });
+      
       const responseData = await res.json();
       if (!res.ok) {
-        throw new Error(responseData.error || "Failed to create project");
+        throw new Error(responseData.error || "Failed to create project in database");
       }
+      
       setSuccess(true);
       reset();
+      
       // Redirect back to the team page after successful creation
       setTimeout(() => {
         router.push(`/teams/${data.teamId}`);
       }, 1500);
+      
     } catch (err: any) {
+      console.error("Error creating project:", err);
       setSubmitError(err.message || "Something went wrong");
     }
   };
@@ -153,7 +196,7 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                You need to connect your wallet to create projects.
+                You need to connect your wallet to create projects on the blockchain.
               </AlertDescription>
             </Alert>
             <Button 
@@ -247,10 +290,15 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
               <Input id="liveUrl" type="url" placeholder="https://yourproject.com" {...register("liveUrl")} />
             </div>
             {submitError && <p className="text-sm text-destructive mt-2">{submitError}</p>}
+            {blockchainProjectId && (
+              <p className="text-sm text-blue-600 mt-2">
+                ✅ Project created on blockchain with ID: {blockchainProjectId}
+              </p>
+            )}
             {success && <p className="text-sm text-green-600 mt-2">Project created successfully! Redirecting...</p>}
             <div className="flex gap-2">
               <Button type="submit" className="flex-1" disabled={isSubmitting || loadingTeams}>
-                {isSubmitting ? "Creating..." : "Create Project"}
+                {isSubmitting ? "Creating project..." : "Create Project"}
               </Button>
               <Button 
                 type="button" 
@@ -264,7 +312,7 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 items-center">
-          <span className="text-sm text-muted-foreground">Projects are always created under a team. Select your team and fill in the details.</span>
+          <span className="text-sm text-muted-foreground">Projects are created on the blockchain first, then stored in the database.</span>
         </CardFooter>
       </Card>
     </div>
