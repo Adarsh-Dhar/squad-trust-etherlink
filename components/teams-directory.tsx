@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Filter } from "lucide-react"
+import { Search, Filter, Plus } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CreateProjectForm } from "@/components/create-project-form";
@@ -238,6 +238,12 @@ export function TeamsDirectory() {
         <Button variant="outline" className="flex items-center gap-2 bg-transparent">
           <Filter className="h-4 w-4" />
           Filters
+        </Button>
+        <Button asChild className="flex items-center gap-2">
+          <Link href="/teams/create">
+            <Plus className="h-4 w-4" />
+            Create New
+          </Link>
         </Button>
       </div>
 

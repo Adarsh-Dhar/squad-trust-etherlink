@@ -17,6 +17,7 @@ import { useSession } from "next-auth/react";
 import { useWallet } from "@/hooks/useWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface TeamMember {
   id: string;
@@ -64,6 +65,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const { data: session } = useSession();
   const { address } = useWallet();
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchTeam() {
@@ -505,21 +507,13 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         <TabsContent value="projects" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold">Projects</h2>
-            {isMember && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="default">Create Project</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create a New Project</DialogTitle>
-                    <DialogDescription>
-                      Add a new project to your team. Fill in the details below.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <CreateProjectForm teamId={teamId} />
-                </DialogContent>
-              </Dialog>
+            {isMember && userRole === 'ADMIN' && (
+              <Button 
+                variant="default" 
+                onClick={() => router.push(`/teams/${teamId}/projects`)}
+              >
+                Create Project
+              </Button>
             )}
           </div>
           <div className="grid gap-6">

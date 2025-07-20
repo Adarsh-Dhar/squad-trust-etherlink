@@ -8,21 +8,74 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
+import { useWallet } from "@/hooks/useWallet";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { use } from "react";
 
 interface Team {
   id: string;
   name: string;
+  members: {
+    id: string;
+    role: string;
+    user: {
+      id: string;
+      walletAddress: string;
+    };
+  }[];
 }
 
-export default function CreateProjectStandalonePage() {
+export default function CreateProjectStandalonePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const router = useRouter();
+  const { address } = useWallet();
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch } = useForm();
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm();
   const selectedTeamId = watch("teamId");
+
+  // Check if user is admin of the team
+  useEffect(() => {
+    async function checkAdminStatus() {
+      if (!address || !id) {
+        setLoadingAuth(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/teams/${id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch team data');
+        }
+        
+        const teamData = await response.json();
+        const normalizedUserAddress = address.toLowerCase();
+        
+        // Check if user is a member with ADMIN role
+        const isMember = teamData.members.some((member: any) => {
+          const normalizedMemberAddress = member.user.walletAddress.toLowerCase();
+          return normalizedMemberAddress === normalizedUserAddress && member.role === 'ADMIN';
+        });
+        
+        setIsAdmin(isMember);
+      } catch (err: any) {
+        console.error('Error checking admin status:', err);
+        setIsAdmin(false);
+      } finally {
+        setLoadingAuth(false);
+      }
+    }
+
+    checkAdminStatus();
+  }, [address, id]);
 
   useEffect(() => {
     async function fetchTeams() {
@@ -33,6 +86,14 @@ export default function CreateProjectStandalonePage() {
         const data = await res.json();
         if (!Array.isArray(data)) throw new Error("Failed to fetch teams");
         setTeams(data);
+        
+        // Pre-select the team if we have a teamId from the URL
+        if (id) {
+          const teamExists = data.find((team: Team) => team.id === id);
+          if (teamExists) {
+            setValue("teamId", id);
+          }
+        }
       } catch (e: any) {
         setFetchError(e.message || "Failed to load teams");
       } finally {
@@ -40,7 +101,7 @@ export default function CreateProjectStandalonePage() {
       }
     }
     fetchTeams();
-  }, []);
+  }, [id, setValue]);
 
   const onSubmit = async (data: any) => {
     setSubmitError(null);
@@ -62,10 +123,77 @@ export default function CreateProjectStandalonePage() {
       }
       setSuccess(true);
       reset();
+      // Redirect back to the team page after successful creation
+      setTimeout(() => {
+        router.push(`/teams/${data.teamId}`);
+      }, 1500);
     } catch (err: any) {
       setSubmitError(err.message || "Something went wrong");
     }
   };
+
+  // Show loading state
+  if (loadingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show wallet connection prompt if not connected
+  if (!address) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-2">
+        <Card className="w-full max-w-lg animate-fade-in">
+          <CardHeader>
+            <CardTitle>Connect Your Wallet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You need to connect your wallet to create projects.
+              </AlertDescription>
+            </Alert>
+            <Button 
+              onClick={() => router.push('/auth/login')} 
+              className="w-full mt-4"
+            >
+              Connect Wallet
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show access denied if not admin
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-2">
+        <Card className="w-full max-w-lg animate-fade-in">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Only team administrators can create projects. You need to be an admin of this team to access this page.
+              </AlertDescription>
+            </Alert>
+            <Button 
+              onClick={() => router.back()} 
+              className="w-full mt-4"
+            >
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-2">
@@ -86,7 +214,7 @@ export default function CreateProjectStandalonePage() {
                   id="teamId"
                   {...register("teamId", { required: "Please select a team" })}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                  defaultValue=""
+                  defaultValue={id || ""}
                 >
                   <option value="" disabled>
                     -- Select a team --
@@ -119,10 +247,20 @@ export default function CreateProjectStandalonePage() {
               <Input id="liveUrl" type="url" placeholder="https://yourproject.com" {...register("liveUrl")} />
             </div>
             {submitError && <p className="text-sm text-destructive mt-2">{submitError}</p>}
-            {success && <p className="text-sm text-green-600 mt-2">Project created successfully!</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting || loadingTeams}>
-              {isSubmitting ? "Creating..." : "Create Project"}
-            </Button>
+            {success && <p className="text-sm text-green-600 mt-2">Project created successfully! Redirecting...</p>}
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={isSubmitting || loadingTeams}>
+                {isSubmitting ? "Creating..." : "Create Project"}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => router.back()}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 items-center">
