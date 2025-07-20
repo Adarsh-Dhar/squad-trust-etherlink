@@ -121,7 +121,7 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
     
     try {
       // Step 1: Execute blockchain transaction first
-      console.log("Step 1: Creating project on blockchain...");
+      // console.log("Step 1: Creating project on blockchain...");
       
       // Get signer from connected wallet
       const signer = await getSigner();
@@ -136,11 +136,11 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
       const requiredConfirmations = 2; // Default value
       const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations);
       
-      console.log("Blockchain project created with ID:", blockchainProjectId);
+      // console.log("Blockchain project created with ID:", blockchainProjectId);
       setBlockchainProjectId(blockchainProjectId);
 
       // Step 2: Create project in database with blockchain reference
-      console.log("Step 2: Creating project in database...");
+      // console.log("Step 2: Creating project in database...");
       
       const res = await fetch(`/api/teams/${data.teamId}/projects`, {
         method: "POST",

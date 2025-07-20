@@ -60,7 +60,7 @@ export default function CreateTeamPage() {
         }),
       });
       const responseData = await res.json();
-      console.log("Team creation response:", responseData);
+      // console.log("Team creation response:", responseData);
       if (!res.ok) {
         throw new Error(responseData.error || "Failed to create team");
       }

@@ -13,12 +13,13 @@ import { getSigner, createSquadTrustService } from "@/lib/contract";
 
 interface ClaimRoleButtonProps {
   projectId: string;
+  blockchainProjectId?: string; // Add blockchain project ID
   className?: string;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function ClaimRoleButton({ projectId, className, variant = "default", size = "sm" }: ClaimRoleButtonProps) {
+export function ClaimRoleButton({ projectId, blockchainProjectId, className, variant = "default", size = "sm" }: ClaimRoleButtonProps) {
   const [open, setOpen] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,18 +74,19 @@ export function ClaimRoleButton({ projectId, className, variant = "default", siz
 
       console.log("Claiming role with:", {
         projectId,
+        blockchainProjectId,
         role: data.roleTitle,
         stakeAmount,
         userAddress: address
       });
 
-      // Convert projectId to bytes32 format for the smart contract
-      // The contract expects a bytes32 projectId, so we'll use a hash of the projectId
-      const { ethers } = await import('ethers');
-      const projectIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(projectId));
+      // Use the blockchain project ID if available, otherwise show error
+      if (!blockchainProjectId) {
+        throw new Error("Blockchain project ID not available. This project may not have been created on the blockchain.");
+      }
 
-      // Claim role on blockchain
-      await squadTrustService.claimRole(projectIdBytes32, data.roleTitle, stakeAmount);
+      // Claim role on blockchain using the actual blockchain project ID
+      await squadTrustService.claimRole(blockchainProjectId, data.roleTitle, stakeAmount);
 
       // Also create the role in the database
       const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec";

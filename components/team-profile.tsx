@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ClaimRoleButton } from "@/components/ui/claim-role-button";
+import { createSquadTrustService, getSigner } from "@/lib/contract";
 
 interface TeamMember {
   id: string;
@@ -38,6 +39,7 @@ interface Project {
   status: string;
   createdAt: string;
   updatedAt: string;
+  blockchainProjectId?: string; // Blockchain project ID from smart contract
   milestones: any[];
   funding: any[];
 }
@@ -91,8 +93,58 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             name: m.user.name,
             role: m.role
           })),
-          currentAddress: address
+          currentAddress: address,
+          projects: teamData.projects.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            blockchainProjectId: p.blockchainProjectId
+          }))
         });
+
+        // Fetch all projects from blockchain
+        try {
+          const signer = await getSigner();
+          if (signer) {
+            const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+            const squadTrustService = createSquadTrustService(contractAddress, signer);
+            
+            // console.log('Fetching all projects from blockchain...');
+            const allProjects = await squadTrustService.getAllProjects();
+            console.log('All projects from blockchain:', allProjects);
+            
+            // Get and log project count
+            const projectCount = await squadTrustService.getProjectCount();
+            console.log('Total project count from blockchain:', projectCount);
+            
+            // Log detailed information for each project
+            for (const projectId of allProjects) {
+              try {
+                const projectDetails = await squadTrustService.getProject(projectId);
+                // console.log(`Project ${projectId} details:`, projectDetails);
+                
+                // Get project members
+                const projectMembers = await squadTrustService.getProjectMembers(projectId);
+                // console.log(`Project ${projectId} members:`, projectMembers);
+                
+                // Get credibility scores for members
+                for (const member of projectMembers) {
+                  try {
+                    const credibilityScore = await squadTrustService.getCredibilityScore(member);
+                    // console.log(`Member ${member} credibility score:`, credibilityScore);
+                  } catch (error) {
+                    // console.log(`Could not get credibility score for member ${member}:`, error);
+                  }
+                }
+              } catch (error) {
+                // console.log(`Could not get details for project ${projectId}:`, error);
+              }
+            }
+          } else {
+            // console.log('No signer available, skipping blockchain project fetch');
+          }
+        } catch (blockchainError) {
+          console.error('Error fetching projects from blockchain:', blockchainError);
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load team data');
       } finally {
@@ -106,10 +158,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   // Log member detection when team or address changes
   useEffect(() => {
     if (team && address) {
-      console.log('=== MEMBER DETECTION TRIGGERED ===');
-      console.log('Team loaded:', !!team);
-      console.log('Address loaded:', !!address);
-      console.log('Address value:', address);
+      // console.log('=== MEMBER DETECTION TRIGGERED ===');
+      // console.log('Team loaded:', !!team);
+      // console.log('Address loaded:', !!address);
+      // console.log('Address value:', address);
       
       const isMember = isCurrentUserMember();
       console.log('Member detection result:', {
@@ -131,38 +183,38 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   // Check if current user is a member of this team
   const isCurrentUserMember = () => {
     if (!address || !team) {
-      console.log('Member check failed - missing address or team:', { address, team: !!team });
+      // console.log('Member check failed - missing address or team:', { address, team: !!team });
       return false;
     }
     
     // Normalize the current user's address
     const normalizedUserAddress = address.toLowerCase();
     
-    console.log('=== DETAILED MEMBER CHECK ===');
-    console.log('Current user address:', address);
-    console.log('Normalized user address:', normalizedUserAddress);
-    console.log('Team ID:', team.id);
-    console.log('Team name:', team.name);
-    console.log('Total members:', team.members.length);
+    // console.log('=== DETAILED MEMBER CHECK ===');
+    // console.log('Current user address:', address);
+    // console.log('Normalized user address:', normalizedUserAddress);
+    // console.log('Team ID:', team.id);
+    // console.log('Team name:', team.name);
+    // console.log('Total members:', team.members.length);
     
     // Check if user is in the team members list
     const isMember = team.members.some((member, index) => {
       const normalizedMemberAddress = member.user.walletAddress.toLowerCase();
       const matches = normalizedMemberAddress === normalizedUserAddress;
       
-      console.log(`Member ${index + 1}:`);
-      console.log(`  - Wallet: ${member.user.walletAddress}`);
-      console.log(`  - Normalized: ${normalizedMemberAddress}`);
-      console.log(`  - Name: ${member.user.name}`);
-      console.log(`  - Role: ${member.role}`);
-      console.log(`  - Matches current user: ${matches}`);
+      // console.log(`Member ${index + 1}:`);
+      // console.log(`  - Wallet: ${member.user.walletAddress}`);
+      // console.log(`  - Normalized: ${normalizedMemberAddress}`);
+      // console.log(`  - Name: ${member.user.name}`);
+      // console.log(`  - Role: ${member.role}`);
+      // console.log(`  - Matches current user: ${matches}`);
       
       return matches;
     });
     
-    console.log('=== FINAL RESULT ===');
-    console.log('Is member:', isMember);
-    console.log('========================');
+    // console.log('=== FINAL RESULT ===');
+    // console.log('Is member:', isMember);
+    // console.log('========================');
     
     return isMember;
   };
@@ -562,7 +614,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-border">
-                        <ClaimRoleButton projectId={project.id} />
+                        <ClaimRoleButton 
+                          projectId={project.id} 
+                          blockchainProjectId={project.blockchainProjectId}
+                        />
                       </div>
                     </CardContent>
                   </Card>
