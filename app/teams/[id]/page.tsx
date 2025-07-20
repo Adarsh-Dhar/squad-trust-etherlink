@@ -1,9 +1,11 @@
 import { TeamProfile } from "@/components/team-profile"
 
-export default function TeamPage({ params }: { params: { id: string } }) {
+export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   return (
     <div className="min-h-screen py-8 bg-background">
-      <TeamProfile teamId={params.id} />
+      <TeamProfile teamId={id} />
     </div>
   )
 }

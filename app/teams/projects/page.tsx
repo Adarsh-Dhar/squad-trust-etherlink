@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ClaimRoleButton } from "@/components/ui/claim-role-button";
 import Link from "next/link";
 
 interface Project {
@@ -133,6 +134,9 @@ export default function AllProjectsPage() {
                           Live Site
                         </a>
                       )}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <ClaimRoleButton projectId={project.id} />
                     </div>
                   </CardContent>
                 </Card>

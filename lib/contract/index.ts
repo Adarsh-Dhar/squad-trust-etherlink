@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
-import { parseEther, formatEther, isAddress } from 'ethers';
-import SquadTrustABI from '../../contract/out/SquadTrust.sol/SquadTrust.json';
+import { parseEther, formatEther, isAddress, BrowserProvider } from 'ethers';
+import SquadTrustABI from '../../contract/SquadTrust.abi.json';
 
 // Contract ABI - you'll need to compile the contract and import the ABI
 // For now, I'll define the essential types and interfaces
@@ -55,7 +55,8 @@ export class SquadTrustService {
 
   constructor(contractAddress: string, signer: ethers.Signer) {
     this.signer = signer;
-    this.contract = new ethers.Contract(contractAddress, SquadTrustABI.abi, signer);
+    // Fix: Use the ABI directly instead of SquadTrustABI.abi
+    this.contract = new ethers.Contract(contractAddress, SquadTrustABI, signer);
   }
 
   // ============ CORE FUNCTIONS ============
@@ -211,9 +212,9 @@ export class SquadTrustService {
         name: result[0],
         creator: result[1],
         completed: result[2],
-        createdAt: result[3].toNumber(),
-        completedAt: result[4].toNumber(),
-        memberCount: result[5].toNumber()
+        createdAt: Number(result[3]),
+        completedAt: Number(result[4]),
+        memberCount: Number(result[5])
       };
     } catch (error) {
       console.error('Error getting project:', error);
@@ -277,7 +278,7 @@ export class SquadTrustService {
   async getCredibilityScore(member: string): Promise<number> {
     try {
       const score = await this.contract.getCredibilityScore(member);
-      return score.toNumber();
+      return Number(score);
     } catch (error) {
       console.error('Error getting credibility score:', error);
       throw error;
@@ -296,7 +297,7 @@ export class SquadTrustService {
       return {
         description: result[0],
         confirmed: result[1],
-        confirmations: result[2].toNumber()
+        confirmations: Number(result[2])
       };
     } catch (error) {
       console.error('Error getting milestone:', error);
@@ -338,7 +339,7 @@ export class SquadTrustService {
   async getProjectCount(): Promise<number> {
     try {
       const count = await this.contract.projectCount();
-      return count.toNumber();
+      return Number(count);
     } catch (error) {
       console.error('Error getting project count:', error);
       throw error;
@@ -369,7 +370,7 @@ export async function getSigner(): Promise<ethers.Signer | null> {
     }
 
     // Create provider and signer
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const provider = new BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
     return signer;

@@ -18,6 +18,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ClaimRoleButton } from "@/components/ui/claim-role-button";
 
 interface TeamMember {
   id: string;
@@ -559,6 +560,9 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                             {formatDate(project.createdAt)}
                           </div>
                         </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <ClaimRoleButton projectId={project.id} />
                       </div>
                     </CardContent>
                   </Card>
