@@ -60,6 +60,7 @@ interface Team {
     lastUpdated: string;
     details: any;
   } | null;
+  tags: string[]; // <-- add this line
 }
 
 export function TeamProfile({ teamId }: { teamId: string }) {
@@ -101,7 +102,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         }
         
         const teamData = await response.json();
-        setTeam(teamData);
+        setTeam({ ...teamData, tags: teamData.tags || [] });
         
         console.log('Team data loaded:', {
           teamId,
@@ -595,6 +596,15 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               <div>
                 <h1 className="text-4xl font-bold mb-2">{team.name}</h1>
                 <p className="text-muted-foreground">Founded in {formatDate(team.createdAt)}</p>
+                {team.tags && team.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {team.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <p className="text-lg text-muted-foreground mb-6 max-w-3xl">
