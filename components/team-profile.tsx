@@ -129,11 +129,15 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             
             // console.log('Fetching all projects from blockchain...');
             const allProjects = await squadTrustService.getAllProjects();
-            console.log('All projects from blockchain:', allProjects);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('All projects from blockchain:', allProjects);
+            }
             
             // Get and log project count
             const projectCount = await squadTrustService.getProjectCount();
-            console.log('Total project count from blockchain:', projectCount);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Total project count from blockchain:', projectCount);
+            }
             
             // Log detailed information for each project
             for (const projectId of allProjects) {
@@ -177,25 +181,15 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   // Log member detection when team or address changes
   useEffect(() => {
     if (team && address) {
-      // console.log('=== MEMBER DETECTION TRIGGERED ===');
-      // console.log('Team loaded:', !!team);
-      // console.log('Address loaded:', !!address);
-      // console.log('Address value:', address);
-      
-      const isMember = isCurrentUserMember();
-      console.log('Member detection result:', {
-        address,
-        teamId: team.id,
-        teamName: team.name,
-        isMember,
-        totalMembers: team.members.length
-      });
-    } else {
-      console.log('Member detection skipped - missing data:', {
-        hasTeam: !!team,
-        hasAddress: !!address,
-        address: address
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Member detection result:', {
+          address,
+          teamId: team.id,
+          teamName: team.name,
+          isMember: isCurrentUserMember(),
+          totalMembers: team.members.length
+        });
+      }
     }
   }, [team, address]);
 
@@ -212,17 +206,21 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) return;
         try {
           const role = await squadTrustService.getMemberRole(getBytes(project.blockchainProjectId), address);
-          updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
+          if (role) {
+            updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
+          }
         } catch (err: any) {
           // Suppress 'could not decode result data' error (user has no on-chain role)
           if (
             err?.code === 'BAD_DATA' &&
             err?.message?.includes('could not decode result data')
           ) {
+            // Do not log, this is expected
             return;
+          } else {
+            // Log unexpected errors only
+            console.error('Error getting member role:', err);
           }
-          // Log unexpected errors
-          console.error('Error getting member role:', err);
         }
       }));
       setUserProjectRoles(updates);
@@ -476,6 +474,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
     setCompleteError(null);
     setCompleteSuccess(null);
     try {
+      console.log("userProjectRoles[project.id]", userProjectRoles[project.id]);
       if (!project.blockchainProjectId) throw new Error("Blockchain project ID not found");
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
@@ -809,16 +808,20 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                             <div className="text-green-500 text-xs mt-2">{completeSuccess}</div>
                           )}
                           {/* Withdraw Stake Button for current user */}
-                          {userProjectRoles[project.id] && userProjectRoles[project.id].verified && Number(userProjectRoles[project.id].stakeAmount) > 0 && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleWithdrawStake(project)}
-                              disabled={withdrawingProjectId === project.id}
-                              className="mt-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
-                            >
-                              {withdrawingProjectId === project.id ? "Withdrawing..." : `Withdraw Stake (${userProjectRoles[project.id].stakeAmount} ETH)`}
-                            </Button>
-                          )}
+
+                            {userProjectRoles[project.id] && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleWithdrawStake(project)}
+                                disabled={withdrawingProjectId === project.id}
+                                className="mt-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
+                              >
+                                {withdrawingProjectId === project.id
+                                  ? "Withdrawing..."
+                                  : `Withdraw Stake (${userProjectRoles[project.id].stakeAmount} ETH)`}
+                              </Button>
+                            )}
+                          
                           {withdrawError && withdrawingProjectId === project.id && (
                             <div className="text-destructive text-xs mt-2">{withdrawError}</div>
                           )}

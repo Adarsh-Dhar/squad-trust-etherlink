@@ -227,7 +227,7 @@ export class SquadTrustService {
    * @param member Member address
    * @returns Member role details
    */
-  async getMemberRole(projectId: string, member: string): Promise<MemberRole> {
+  async getMemberRole(projectId: string, member: string): Promise<MemberRole | null> {
     try {
       const result = await this.contract.getMemberRole(projectId, member);
       return {
@@ -235,7 +235,14 @@ export class SquadTrustService {
         verified: result[1],
         stakeAmount: formatEther(result[2])
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (
+        error?.code === 'BAD_DATA' &&
+        error?.message?.includes('could not decode result data')
+      ) {
+        // Suppress expected error: user has no on-chain role
+        return null;
+      }
       console.error('Error getting member role:', error);
       throw error;
     }
