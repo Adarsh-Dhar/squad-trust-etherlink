@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, bio, website, createdBy } = body;
+    const { name, bio, website, createdBy, tags } = body;
     
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Team name is required.' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         name,
         bio: bio || null,
         website: website || null,
+        tags: tags && Array.isArray(tags) ? tags : [],
         members: {
           create: {
             userId: user.id,

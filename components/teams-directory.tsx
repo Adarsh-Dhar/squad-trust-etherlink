@@ -10,6 +10,15 @@ import Link from "next/link"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CreateProjectForm } from "@/components/create-project-form";
 import { useSession } from "next-auth/react";
+import { Fragment, } from "react";
+
+// Trust score color
+function getTrustScoreColor(score: number) {
+  if (score >= 90) return "from-green-500 to-emerald-500"
+  if (score >= 80) return "from-blue-500 to-cyan-500"
+  if (score >= 70) return "from-yellow-500 to-orange-500"
+  return "from-red-500 to-pink-500"
+}
 
 export function TeamsDirectory() {
   const { data: session, status } = useSession();
@@ -20,6 +29,14 @@ export function TeamsDirectory() {
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState<{ teamId: string | null }>({ teamId: null })
   const [leaving, setLeaving] = useState<string | null>(null)
+
+  // Categorized teams
+  const [myTeams, setMyTeams] = useState<any[]>([])
+  const [joinedTeams, setJoinedTeams] = useState<any[]>([])
+  const [joinTeams, setJoinTeams] = useState<any[]>([])
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'my' | 'joined' | 'join'>('my');
 
   // Fetch teams and their stats
   useEffect(() => {
@@ -62,14 +79,19 @@ export function TeamsDirectory() {
               }
             } catch {}
             
-            // Check if current user is a member (only if authenticated)
+            // Check if current user is a member/admin (only if authenticated)
             let isMember = false
+            let isAdmin = false
             if (session?.user?.walletAddress) {
               try {
                 const userRes = await fetch(`/api/users/wallet/${session.user.walletAddress}`)
                 if (userRes.ok) {
                   const user = await userRes.json()
-                  isMember = Array.isArray(members) && members.some((m: any) => m.userId === user.id)
+                  if (Array.isArray(members)) {
+                    const found = members.find((m: any) => m.userId === user.id)
+                    isMember = !!found
+                    isAdmin = found?.role === "ADMIN"
+                  }
                 }
               } catch {}
             }
@@ -80,10 +102,21 @@ export function TeamsDirectory() {
               membersCount: Array.isArray(members) ? members.length : 0,
               projectsCount: Array.isArray(projects) ? projects.length : 0,
               isMember,
+              isAdmin,
             }
           })
         )
         setTeams(teamsWithStats)
+        // Categorize teams
+        if (session?.user?.walletAddress) {
+          setMyTeams(teamsWithStats.filter((t) => t.isAdmin))
+          setJoinedTeams(teamsWithStats.filter((t) => t.isMember && !t.isAdmin))
+          setJoinTeams(teamsWithStats.filter((t) => !t.isMember && !t.isAdmin))
+        } else {
+          setMyTeams([])
+          setJoinedTeams([])
+          setJoinTeams(teamsWithStats)
+        }
       } catch (e: any) {
         setError(e.message || "Failed to load teams")
       } finally {
@@ -96,21 +129,27 @@ export function TeamsDirectory() {
   }, [status, session])
 
   // Search filter
-  const filteredTeams = teams.filter((team) => {
+  const filteredMyTeams = myTeams.filter((team) => {
     const term = searchTerm.toLowerCase()
     return (
       team.name.toLowerCase().includes(term) ||
       (team.bio && team.bio.toLowerCase().includes(term))
     )
   })
-
-  // Trust score color
-  const getTrustScoreColor = (score: number) => {
-    if (score >= 90) return "from-green-500 to-emerald-500"
-    if (score >= 80) return "from-blue-500 to-cyan-500"
-    if (score >= 70) return "from-yellow-500 to-orange-500"
-    return "from-red-500 to-pink-500"
-  }
+  const filteredJoinedTeams = joinedTeams.filter((team) => {
+    const term = searchTerm.toLowerCase()
+    return (
+      team.name.toLowerCase().includes(term) ||
+      (team.bio && team.bio.toLowerCase().includes(term))
+    )
+  })
+  const filteredJoinTeams = joinTeams.filter((team) => {
+    const term = searchTerm.toLowerCase()
+    return (
+      team.name.toLowerCase().includes(term) ||
+      (team.bio && team.bio.toLowerCase().includes(term))
+    )
+  })
 
   // Join team handler
   const handleJoin = async (teamId: string) => {
@@ -252,104 +291,57 @@ export function TeamsDirectory() {
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading teams...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTeams.map((team, index) => (
-            <Card
-              key={team.id}
-              className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <CardContent className="p-6">
-                {/* Team Header */}
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="text-3xl">🏢</div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
-                    <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
-                  </div>
-                </div>
+        <>
+          {/* Tabs */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex rounded-lg bg-muted p-1 shadow-sm">
+              <button
+                className={`px-6 py-2 rounded-l-lg font-medium transition-colors duration-200 focus:outline-none ${activeTab === 'my' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-accent'}`}
+                onClick={() => setActiveTab('my')}
+              >
+                My Teams
+              </button>
+              <button
+                className={`px-6 py-2 font-medium transition-colors duration-200 focus:outline-none ${activeTab === 'joined' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-accent'}`}
+                onClick={() => setActiveTab('joined')}
+              >
+                Joined Teams
+              </button>
+              <button
+                className={`px-6 py-2 rounded-r-lg font-medium transition-colors duration-200 focus:outline-none ${activeTab === 'join' ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-accent'}`}
+                onClick={() => setActiveTab('join')}
+              >
+                Join Teams
+              </button>
+            </div>
+          </div>
 
-                {/* Trust Score */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Trust Score</span>
-                    <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
-                  </div>
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div
-                      className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
-                      style={{ width: `${team.trustScore || 0}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4 mb-4 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
-                    <div className="text-xs text-muted-foreground">Projects</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-primary">{team.membersCount}</div>
-                    <div className="text-xs text-muted-foreground">Members</div>
-                  </div>
-                </div>
-
-                {/* Join/Leave/Details Buttons */}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    asChild
-                  >
-                    <Link href={`/teams/${team.id}`}>Details</Link>
-                  </Button>
-                  {!team.isMember ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={joining === team.id}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handleJoin(team.id)
-                      }}
-                    >
-                      {joining === team.id ? "Joining..." : "Join"}
-                    </Button>
-                  ) : (
-                    <>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="default">Create Project</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Create a New Project</DialogTitle>
-                            <DialogDescription>
-                              Add a new project to your team. Fill in the details below.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <CreateProjectForm teamId={team.id} redirectToProjects />
-                        </DialogContent>
-                      </Dialog>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={leaving === team.id}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setShowConfirm({ teamId: team.id })
-                        }}
-                      >
-                        {leaving === team.id ? "Leaving..." : "Leave"}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          {/* Tab Content */}
+          {activeTab === 'my' && (
+            <Section
+              title="My Teams"
+              teams={filteredMyTeams}
+              renderTeam={(team, idx) => renderTeamCard(team, idx, { joining, leaving, handleJoin, setShowConfirm })}
+              emptyMsg="You are not an admin of any team."
+            />
+          )}
+          {activeTab === 'joined' && (
+            <Section
+              title="Joined Teams"
+              teams={filteredJoinedTeams}
+              renderTeam={(team, idx) => renderTeamCard(team, idx, { joining, leaving, handleJoin, setShowConfirm })}
+              emptyMsg="You haven't joined any teams yet."
+            />
+          )}
+          {activeTab === 'join' && (
+            <Section
+              title="Join Teams"
+              teams={filteredJoinTeams}
+              renderTeam={(team, idx) => renderTeamCard(team, idx, { joining, leaving, handleJoin, setShowConfirm })}
+              emptyMsg="No teams available to join."
+            />
+          )}
+        </>
       )}
 
       {/* Leave Confirmation Dialog */}
@@ -376,9 +368,132 @@ export function TeamsDirectory() {
         </div>
       )}
 
-      {!loading && filteredTeams.length === 0 && (
+      {!loading && filteredMyTeams.length === 0 && filteredJoinedTeams.length === 0 && filteredJoinTeams.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No teams found matching your search criteria.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Helper to render a team card (to avoid code duplication)
+function renderTeamCard(team: any, index: number, {
+  joining,
+  leaving,
+  handleJoin,
+  setShowConfirm
+}: {
+  joining: string | null,
+  leaving: string | null,
+  handleJoin: (teamId: string) => void,
+  setShowConfirm: (val: { teamId: string | null }) => void
+}) {
+  return (
+    <Card
+      key={team.id}
+      className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
+      style={{ animationDelay: `${index * 0.1}s` }}
+    >
+      <CardContent className="p-6">
+        {/* Team Header */}
+        <div className="flex items-center space-x-4 mb-4">
+          <div className="text-3xl">🏢</div>
+          <div className="flex-1">
+            <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
+            <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
+          </div>
+        </div>
+        {/* Trust Score */}
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium">Trust Score</span>
+            <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-2">
+            <div
+              className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
+              style={{ width: `${team.trustScore || 0}%` }}
+            ></div>
+          </div>
+        </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+          <div>
+            <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
+            <div className="text-xs text-muted-foreground">Projects</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-primary">{team.membersCount}</div>
+            <div className="text-xs text-muted-foreground">Members</div>
+          </div>
+        </div>
+        {/* Join/Leave/Details Buttons */}
+        <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            asChild
+          >
+            <Link href={`/teams/${team.id}`}>Details</Link>
+          </Button>
+          {!team.isMember ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={joining === team.id}
+              onClick={(e) => {
+                e.preventDefault()
+                handleJoin(team.id)
+              }}
+            >
+              {joining === team.id ? "Joining..." : "Join"}
+            </Button>
+          ) : (
+            <>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="default">Create Project</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create a New Project</DialogTitle>
+                    <DialogDescription>
+                      Add a new project to your team. Fill in the details below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <CreateProjectForm teamId={team.id} redirectToProjects />
+                </DialogContent>
+              </Dialog>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={leaving === team.id}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setShowConfirm({ teamId: team.id })
+                }}
+              >
+                {leaving === team.id ? "Leaving..." : "Leave"}
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Section component for rendering each team section
+function Section({ title, teams, renderTeam, emptyMsg }: { title: string, teams: any[], renderTeam: (team: any, index: number) => JSX.Element, emptyMsg: string }) {
+  return (
+    <div className="mb-12">
+      <h2 className="text-2xl font-bold mb-4 text-left">{title}</h2>
+      {teams.length === 0 ? (
+        <div className="text-muted-foreground text-center py-8">{emptyMsg}</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {teams.map((team, idx) => renderTeam(team, idx))}
         </div>
       )}
     </div>

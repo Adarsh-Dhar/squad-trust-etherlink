@@ -31,7 +31,7 @@ model Team {
   website        String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-
+  tags           String[]     // <-- Add this line for tags
   members        TeamMember[]
   projects       Project[]
   credibility    CredibilityScore?
