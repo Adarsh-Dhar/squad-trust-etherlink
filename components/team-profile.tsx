@@ -794,22 +794,29 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                               </div>
                             )}
                           </div>
-                          <ClaimRoleButton 
-                            projectId={project.id} 
-                            blockchainProjectId={project.blockchainProjectId}
-                          />
-                          {/* Complete Project Button for Admins */}
-                          {isMember && userRole === 'ADMIN' && project.status !== 'COMPLETED' && project.blockchainProjectId && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleCompleteProject(project)}
-                              disabled={completingProjectId === project.id}
-                              className="mt-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {completingProjectId === project.id ? "Completing..." : "Complete Project (On-chain)"}
-                            </Button>
-                          )}
+                          <div className="flex flex-row justify-between items-center gap-2 w-full">
+                            <div>
+                              <ClaimRoleButton 
+                                projectId={project.id} 
+                                blockchainProjectId={project.blockchainProjectId}
+                                size="sm"
+                              />
+                            </div>
+                            <div>
+                              {/* Complete Project Button for Admins */}
+                              {isMember && userRole === 'ADMIN' && project.status !== 'COMPLETED' && project.blockchainProjectId && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCompleteProject(project)}
+                                  disabled={completingProjectId === project.id}
+                                  className="mt-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {completingProjectId === project.id ? "Completing..." : "Complete Project (On-chain)"}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                           {/* Show per-project error/success */}
                           {completeError && completingProjectId === project.id && (
                             <div className="text-destructive text-xs mt-2">{completeError}</div>

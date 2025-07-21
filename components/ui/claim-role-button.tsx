@@ -230,7 +230,7 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
             <Button 
               type="submit" 
               disabled={claiming || !isConnected}
-              className="w-full"
+              className=""
             >
               {claiming ? "Claiming on Blockchain..." : "Claim Role"}
             </Button>
