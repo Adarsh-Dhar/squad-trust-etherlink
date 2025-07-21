@@ -26,6 +26,9 @@ import {
 } from "lucide-react";
 import { MilestoneForm } from "@/components/milestones/MilestoneForm";
 import { MilestoneCard } from "@/components/milestones/MilestoneCard";
+import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { address as CONTRACT_ADDRESS } from "@/lib/contract/address";
+import { useWallet } from "@/hooks/useWallet";
 
 interface Project {
   id: string;
@@ -35,6 +38,7 @@ interface Project {
   githubRepo?: string;
   liveUrl?: string;
   status?: string;
+  blockchainProjectId?: string; // Added for on-chain completion
 }
 
 interface Milestone {
@@ -79,6 +83,9 @@ export default function ProjectDetailsPage() {
   const [fundingError, setFundingError] = useState<string | null>(null);
   const [addFundingOpen, setAddFundingOpen] = useState(false);
   const [addFundingLoading, setAddFundingLoading] = useState(false);
+  const [onchainCompleteLoading, setOnchainCompleteLoading] = useState(false);
+  const [onchainCompleteError, setOnchainCompleteError] = useState<string | null>(null);
+  const [onchainCompleteSuccess, setOnchainCompleteSuccess] = useState<string | null>(null);
 
   // Milestone form
   const { register: registerMilestone, handleSubmit: handleSubmitMilestone, reset: resetMilestone, formState: { errors: milestoneErrors, isSubmitting: isSubmittingMilestone } } = useForm();
@@ -321,6 +328,32 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  const handleCompleteOnchainAndDB = async () => {
+    setOnchainCompleteLoading(true);
+    setOnchainCompleteError(null);
+    setOnchainCompleteSuccess(null);
+    try {
+      if (!project?.blockchainProjectId) {
+        throw new Error("Blockchain project ID not found for this project.");
+      }
+      // 1. Complete on-chain
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      await squadTrustService.completeProject(project.blockchainProjectId);
+      // 2. Update DB
+      const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark as completed in DB");
+      setProject((prev) => prev ? { ...prev, status: "COMPLETED" } : prev);
+      setOnchainCompleteSuccess("Project completed on-chain and in database!");
+    } catch (e: any) {
+      setOnchainCompleteError(e.message || "Failed to complete project");
+    } finally {
+      setOnchainCompleteLoading(false);
+    }
+  };
+
   // Add milestone
   const onAddMilestone = async (data: any) => {
     setAddMilestoneLoading(true);
@@ -423,12 +456,76 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Withdraw stake state
+  const [withdrawingRoleId, setWithdrawingRoleId] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
+
+  // Withdraw stake handler
+  const handleWithdrawStake = async (role: any) => {
+    setWithdrawingRoleId(role.id);
+    setWithdrawError(null);
+    setWithdrawSuccess(null);
+    try {
+      if (!project?.blockchainProjectId) throw new Error("Blockchain project ID not found");
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      await squadTrustService.withdrawStake(project.blockchainProjectId);
+      setWithdrawSuccess("Stake withdrawn successfully!");
+    } catch (e: any) {
+      setWithdrawError(e.message || "Failed to withdraw stake");
+    } finally {
+      setWithdrawingRoleId(null);
+      setTimeout(() => setWithdrawSuccess(null), 2000);
+    }
+  };
+
+  const { address: walletAddress } = useWallet();
+  // On-chain user role state
+  const [onChainUserRole, setOnChainUserRole] = useState<{ verified: boolean; stakeAmount: string } | null>(null);
+
+  // Fetch on-chain role info for current user
+  useEffect(() => {
+    async function fetchOnChainUserRole() {
+      if (!projectId || !walletAddress) {
+        setOnChainUserRole(null);
+        return;
+      }
+      try {
+        const signer = await getSigner();
+        if (!signer) return;
+        const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+        const role = await squadTrustService.getMemberRole(projectId, walletAddress);
+        setOnChainUserRole({ verified: role.verified, stakeAmount: role.stakeAmount });
+      } catch {
+        setOnChainUserRole(null);
+      }
+    }
+    fetchOnChainUserRole();
+  }, [projectId, walletAddress]);
+
+  // Find the current user's role in the DB (for id, etc)
+  const userDbRole = roles.find(
+    (role) => role.user?.walletAddress?.toLowerCase() === walletAddress?.toLowerCase()
+  );
+
+  // Show button if on-chain role is verified and has positive stake
+  const showWithdrawStake = !!userDbRole && onChainUserRole && onChainUserRole.verified && Number(onChainUserRole.stakeAmount) > 0;
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading project...</div>;
   if (error) return <div className="flex min-h-screen items-center justify-center text-destructive">{error}</div>;
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* DEBUG INFO */}
+      <div className="mb-4 p-4 bg-yellow-100 text-yellow-900 rounded text-xs">
+        <div><b>Debug Info:</b></div>
+        <div>Wallet Address: {walletAddress || 'Not connected'}</div>
+        <div>userDbRole: <pre>{JSON.stringify(userDbRole, null, 2)}</pre></div>
+        <div>onChainUserRole: <pre>{JSON.stringify(onChainUserRole, null, 2)}</pre></div>
+      </div>
       {/* Project Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -450,9 +547,20 @@ export default function ProjectDetailsPage() {
               Delete
             </Button>
             {project.status !== "COMPLETED" && (
-              <Button size="sm" onClick={handleComplete} disabled={completeLoading}>
+              <Button size="sm" onClick={handleCompleteOnchainAndDB} disabled={onchainCompleteLoading} className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {completeLoading ? "Marking..." : "Complete"}
+                {onchainCompleteLoading ? "Completing..." : "Complete (On-chain)"}
+              </Button>
+            )}
+            {/* Withdraw Stake Button for current user (on-chain check) */}
+            {showWithdrawStake && userDbRole && (
+              <Button
+                size="sm"
+                onClick={() => handleWithdrawStake(userDbRole)}
+                disabled={withdrawingRoleId === userDbRole.id}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
+              >
+                {withdrawingRoleId === userDbRole.id ? "Withdrawing..." : `Withdraw Stake (${onChainUserRole.stakeAmount} ETH)`}
               </Button>
             )}
           </div>
@@ -460,6 +568,8 @@ export default function ProjectDetailsPage() {
         
         {successMsg && <div className="text-green-600 text-sm mb-4">{successMsg}</div>}
         {error && <div className="text-destructive text-sm mb-4">{error}</div>}
+        {onchainCompleteSuccess && <div className="text-green-600 text-sm mb-4">{onchainCompleteSuccess}</div>}
+        {onchainCompleteError && <div className="text-destructive text-sm mb-4">{onchainCompleteError}</div>}
       </div>
 
       {/* Main Content with Tabs */}
@@ -634,6 +744,23 @@ export default function ProjectDetailsPage() {
                           <Button size="sm" variant="outline" onClick={() => openEditRole(role)}>Edit</Button>
                         ) : (
                           <Button size="sm" onClick={() => openVerifyRole(role.id)}>Verify</Button>
+                        )}
+                        {/* Withdraw Stake Button */}
+                        {role.userId === MOCK_USER_ID && role.verified && Number(role.stakeAmount) > 0 && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleWithdrawStake(role)}
+                            disabled={withdrawingRoleId === role.id}
+                            className="mt-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
+                          >
+                            {withdrawingRoleId === role.id ? "Withdrawing..." : `Withdraw Stake (${role.stakeAmount} ETH)`}
+                          </Button>
+                        )}
+                        {withdrawError && withdrawingRoleId === role.id && (
+                          <div className="text-destructive text-xs mt-2">{withdrawError}</div>
+                        )}
+                        {withdrawSuccess && withdrawingRoleId === role.id && (
+                          <div className="text-green-500 text-xs mt-2">{withdrawSuccess}</div>
                         )}
                       </div>
                     </div>

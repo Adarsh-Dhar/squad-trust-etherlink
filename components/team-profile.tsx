@@ -21,6 +21,8 @@ import { useRouter } from "next/navigation";
 import { ClaimRoleButton } from "@/components/ui/claim-role-button";
 import { VerifyRoleButton } from "@/components/ui/verify-role-button";
 import { createSquadTrustService, getSigner } from "@/lib/contract";
+import { address as CONTRACT_ADDRESS } from "@/lib/contract/address";
+import { getBytes } from "ethers";
 
 interface TeamMember {
   id: string;
@@ -75,6 +77,17 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const { data: session } = useSession();
   const { address } = useWallet();
   const router = useRouter();
+
+  // Add per-project completion state
+  const [completingProjectId, setCompletingProjectId] = useState<string | null>(null);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  const [completeSuccess, setCompleteSuccess] = useState<string | null>(null);
+
+  // Per-project user role/stake state
+  const [userProjectRoles, setUserProjectRoles] = useState<Record<string, { stakeAmount: string, verified: boolean }>>({});
+  const [withdrawingProjectId, setWithdrawingProjectId] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchTeam() {
@@ -185,6 +198,59 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       });
     }
   }, [team, address]);
+
+  // Fetch user role/stake for each project on mount or address/team change
+  useEffect(() => {
+    if (!address || !team) return;
+    const fetchRoles = async () => {
+      const signer = await getSigner();
+      if (!signer) return;
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      const updates: Record<string, { stakeAmount: string, verified: boolean }> = {};
+      await Promise.all(team.projects.map(async (project) => {
+        // Only call if blockchainProjectId is a valid 0x-prefixed 32-byte hex string
+        if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) return;
+        try {
+          const role = await squadTrustService.getMemberRole(getBytes(project.blockchainProjectId), address);
+          updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
+        } catch (err: any) {
+          // Suppress 'could not decode result data' error (user has no on-chain role)
+          if (
+            err?.code === 'BAD_DATA' &&
+            err?.message?.includes('could not decode result data')
+          ) {
+            return;
+          }
+          // Log unexpected errors
+          console.error('Error getting member role:', err);
+        }
+      }));
+      setUserProjectRoles(updates);
+    };
+    fetchRoles();
+  }, [address, team]);
+
+  // Withdraw stake handler for project
+  const handleWithdrawStake = async (project: Project) => {
+    setWithdrawingProjectId(project.id);
+    setWithdrawError(null);
+    setWithdrawSuccess(null);
+    try {
+      if (!project.blockchainProjectId) throw new Error("Blockchain project ID not found");
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      await squadTrustService.withdrawStake(project.blockchainProjectId);
+      setWithdrawSuccess("Stake withdrawn successfully!");
+      // Optionally, refetch role info
+      setUserProjectRoles((prev) => ({ ...prev, [project.id]: { ...prev[project.id], stakeAmount: "0" } }));
+    } catch (e: any) {
+      setWithdrawError(e.message || "Failed to withdraw stake");
+    } finally {
+      setWithdrawingProjectId(null);
+      setTimeout(() => setWithdrawSuccess(null), 2000);
+    }
+  };
 
   // Check if current user is a member of this team
   const isCurrentUserMember = () => {
@@ -401,6 +467,35 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       setFundingError(e.message || "Failed to add funding");
     } finally {
       setAddFundingLoading(false);
+    }
+  };
+
+  // Complete project handler
+  const handleCompleteProject = async (project: Project) => {
+    setCompletingProjectId(project.id);
+    setCompleteError(null);
+    setCompleteSuccess(null);
+    try {
+      if (!project.blockchainProjectId) throw new Error("Blockchain project ID not found");
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      await squadTrustService.completeProject(project.blockchainProjectId);
+      // Update DB
+      const res = await fetch(`/api/projects/${project.id}/complete`, { method: "PATCH" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark as completed in DB");
+      // Refresh team data
+      const teamRes = await fetch(`/api/teams/${teamId}`);
+      if (teamRes.ok) {
+        setTeam(await teamRes.json());
+      }
+      setCompleteSuccess("Project completed on-chain and in database!");
+    } catch (e: any) {
+      setCompleteError(e.message || "Failed to complete project");
+    } finally {
+      setCompletingProjectId(null);
+      setTimeout(() => setCompleteSuccess(null), 2000);
     }
   };
 
@@ -694,6 +789,42 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                             projectId={project.id} 
                             blockchainProjectId={project.blockchainProjectId}
                           />
+                          {/* Complete Project Button for Admins */}
+                          {isMember && userRole === 'ADMIN' && project.status !== 'COMPLETED' && project.blockchainProjectId && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleCompleteProject(project)}
+                              disabled={completingProjectId === project.id}
+                              className="mt-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {completingProjectId === project.id ? "Completing..." : "Complete Project (On-chain)"}
+                            </Button>
+                          )}
+                          {/* Show per-project error/success */}
+                          {completeError && completingProjectId === project.id && (
+                            <div className="text-destructive text-xs mt-2">{completeError}</div>
+                          )}
+                          {completeSuccess && completingProjectId === project.id && (
+                            <div className="text-green-500 text-xs mt-2">{completeSuccess}</div>
+                          )}
+                          {/* Withdraw Stake Button for current user */}
+                          {userProjectRoles[project.id] && userProjectRoles[project.id].verified && Number(userProjectRoles[project.id].stakeAmount) > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleWithdrawStake(project)}
+                              disabled={withdrawingProjectId === project.id}
+                              className="mt-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
+                            >
+                              {withdrawingProjectId === project.id ? "Withdrawing..." : `Withdraw Stake (${userProjectRoles[project.id].stakeAmount} ETH)`}
+                            </Button>
+                          )}
+                          {withdrawError && withdrawingProjectId === project.id && (
+                            <div className="text-destructive text-xs mt-2">{withdrawError}</div>
+                          )}
+                          {withdrawSuccess && withdrawingProjectId === project.id && (
+                            <div className="text-green-500 text-xs mt-2">{withdrawSuccess}</div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
