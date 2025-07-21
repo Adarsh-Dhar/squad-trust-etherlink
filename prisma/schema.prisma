@@ -22,6 +22,8 @@ model User {
   verifications  Verification[]
   credibility    CredibilityScore?
   milestoneVerifications MilestoneVerification[]
+  notifications  Notification[]
+  joinRequests   JoinRequest[]
 }
 
 model Team {
@@ -35,6 +37,7 @@ model Team {
   members        TeamMember[]
   projects       Project[]
   credibility    CredibilityScore?
+  joinRequests   JoinRequest[]
 }
 
 model TeamMember {
@@ -326,4 +329,24 @@ enum SignatureStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  type      String   // e.g., 'join_request'
+  data      Json     // e.g., { teamId, joinRequestId, ... }
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model JoinRequest {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    String
+  status    String   // 'pending', 'accepted', 'rejected'
+  createdAt DateTime @default(now())
 }

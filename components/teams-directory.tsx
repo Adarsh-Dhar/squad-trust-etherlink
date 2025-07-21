@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react";
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +12,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { CreateProjectForm } from "@/components/create-project-form";
 import { useSession } from "next-auth/react";
 import { Fragment, } from "react";
+import NotificationBell from "@/components/ui/NotificationBell";
 
 // Trust score color
 function getTrustScoreColor(score: number) {
@@ -167,35 +169,21 @@ export function TeamsDirectory() {
         throw new Error("User not found")
       }
       const user = await userRes.json()
-      console.log("user", user)
-      const res = await fetch(`/api/teams/${teamId}/members`, {
+      // Instead of adding as member, create a join request
+      const res = await fetch(`/api/teams/${teamId}/join-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, role: "member" }),
+        body: JSON.stringify({ userId: user.id }),
       })
-      console.log("res", res)
       if (!res.ok) {
         const err = await res.json()
-        if (res.status === 409) {
-          // User is already a member, update UI accordingly
-          setTeams((prev) =>
-            prev.map((t) =>
-              t.id === teamId ? { ...t, membersCount: t.membersCount + 1, isMember: true } : t
-            )
-          )
-        } else {
-          throw new Error(err.error || "Failed to join team")
-        }
+        throw new Error(err.error || "Failed to request to join team")
       } else {
-        // Update UI
-        setTeams((prev) =>
-          prev.map((t) =>
-            t.id === teamId ? { ...t, membersCount: t.membersCount + 1, isMember: true } : t
-          )
-        )
+        // Optionally show a toast or message
+        alert("Join request sent to team admins!")
       }
     } catch (e: any) {
-      setError(e.message || "Failed to join team")
+      setError(e.message || "Failed to request to join team")
     } finally {
       setJoining(null)
     }
@@ -250,6 +238,10 @@ export function TeamsDirectory() {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Notification Bell */}
+      <div className="flex justify-end mb-4">
+        <NotificationBell />
+      </div>
       {/* Header */}
       <div className="text-center mb-12 animate-fade-in">
         <h1 className="text-4xl sm:text-5xl font-bold mb-6">
