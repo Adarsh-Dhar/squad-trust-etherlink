@@ -67,6 +67,11 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [addFundingOpen, setAddFundingOpen] = useState(false);
+  const [addFundingLoading, setAddFundingLoading] = useState(false);
+  const [fundingError, setFundingError] = useState<string | null>(null);
+  const [fundingSuccess, setFundingSuccess] = useState<string | null>(null);
+  const { register: registerFunding, handleSubmit: handleSubmitFunding, reset: resetFunding, formState: { errors: fundingErrors, isSubmitting: isSubmittingFunding } } = useForm();
   const { data: session } = useSession();
   const { address } = useWallet();
   const router = useRouter();
@@ -347,6 +352,55 @@ export function TeamProfile({ teamId }: { teamId: string }) {
     } finally {
       setLeaving(false);
       setShowLeaveConfirm(false);
+    }
+  };
+
+  // Add funding handler
+  const onAddFunding = async (data: any) => {
+    setAddFundingLoading(true);
+    setFundingError(null);
+    setFundingSuccess(null);
+    try {
+      // 1. Onchain confirmMilestone
+      const signer = await getSigner();
+      if (!signer) throw new Error('Please connect your wallet');
+      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+      const squadTrustService = createSquadTrustService(contractAddress, signer);
+      // Find the selected project and get its blockchainProjectId
+      const selectedProject = team?.projects.find(p => p.id === data.projectId);
+      if (!selectedProject || !selectedProject.blockchainProjectId) {
+        throw new Error('Blockchain project ID not found for selected project');
+      }
+      const milestoneId = Date.now();
+      await squadTrustService.confirmMilestone(selectedProject.blockchainProjectId, milestoneId, data.description || "Funding confirmed");
+
+      // 2. POST to the selected project's funding endpoint
+      const res = await fetch(`/api/projects/${data.projectId}/funding`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: data.amount,
+          currency: data.currency,
+          source: data.source,
+          txHash: data.txHash,
+          description: data.description,
+          milestoneId,
+        }),
+      });
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || "Failed to add funding");
+      setFundingSuccess("Funding added successfully!");
+      resetFunding();
+      setAddFundingOpen(false);
+      // Refresh team data
+      const teamRes = await fetch(`/api/teams/${teamId}`);
+      if (teamRes.ok) {
+        setTeam(await teamRes.json());
+      }
+    } catch (e: any) {
+      setFundingError(e.message || "Failed to add funding");
+    } finally {
+      setAddFundingLoading(false);
     }
   };
 
@@ -652,6 +706,14 @@ export function TeamProfile({ teamId }: { teamId: string }) {
 
         {/* Funding History */}
         <TabsContent value="funding" className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Funding History</h2>
+            {isMember && userRole === 'ADMIN' && (
+              <Button onClick={() => setAddFundingOpen(true)}>
+                Create Funding
+              </Button>
+            )}
+          </div>
           <div className="grid gap-6">
             {team.projects.flatMap(project => project.funding).length === 0 ? (
               <Card className="animate-slide-up">
@@ -664,7 +726,8 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               team.projects.flatMap(project => 
                 project.funding.map(fund => ({
                   ...fund,
-                  projectTitle: project.title
+                  projectTitle: project.title,
+                  projectId: project.id
                 }))
               ).map((funding, index) => (
                 <Card key={funding.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
@@ -692,6 +755,52 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               ))
             )}
           </div>
+          {/* Create Funding Dialog */}
+          <Dialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Funding</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
+                <div>
+                  <Label htmlFor="funding-project">Project</Label>
+                  <select id="funding-project" {...registerFunding("projectId", { required: "Project is required" })} className="w-full border rounded p-2">
+                    <option value="">Select a project</option>
+                    {team.projects.map(project => (
+                      <option key={project.id} value={project.id}>{project.title}</option>
+                    ))}
+                  </select>
+                  {fundingErrors.projectId && <p className="text-sm text-destructive mt-1">{fundingErrors.projectId.message as string}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="funding-amount">Amount</Label>
+                  <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
+                  {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="funding-currency">Currency</Label>
+                  <Input id="funding-currency" {...registerFunding("currency", { required: "Currency is required" })} />
+                  {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="funding-source">Source</Label>
+                  <Input id="funding-source" {...registerFunding("source")} />
+                </div>
+                <div>
+                  <Label htmlFor="funding-txHash">Transaction Hash</Label>
+                  <Input id="funding-txHash" {...registerFunding("txHash")} />
+                </div>
+                <DialogFooter className="flex gap-2">
+                  <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Creating..." : "Create"}</Button>
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">Cancel</Button>
+                  </DialogClose>
+                </DialogFooter>
+                {fundingError && <p className="text-sm text-destructive mt-2">{fundingError}</p>}
+                {fundingSuccess && <p className="text-sm text-green-600 mt-2">{fundingSuccess}</p>}
+              </form>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Contributors */}

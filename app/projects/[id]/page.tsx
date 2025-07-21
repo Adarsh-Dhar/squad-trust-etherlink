@@ -24,6 +24,8 @@ import {
   Github,
   Globe
 } from "lucide-react";
+import { MilestoneForm } from "@/components/milestones/MilestoneForm";
+import { MilestoneCard } from "@/components/milestones/MilestoneCard";
 
 interface Project {
   id: string;
@@ -537,28 +539,13 @@ export default function ProjectDetailsPage() {
               ) : (
                 <div className="space-y-3">
                   {milestones.map(milestone => (
-                    <div key={milestone.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                      <div className="flex-1">
-                        <div className="font-medium">{milestone.title}</div>
-                        <div className="text-sm text-muted-foreground">{milestone.description}</div>
-                        {milestone.dueDate && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Due: {milestone.dueDate.slice(0, 10)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {milestone.completed ? (
-                          <Badge variant="default" className="bg-green-100 text-green-700">
-                            Completed
-                          </Badge>
-                        ) : (
-                          <Button size="sm" onClick={() => markMilestoneComplete(milestone.id)}>
-                            Mark Complete
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                    <MilestoneCard
+                      key={milestone.id}
+                      milestone={milestone}
+                      onComplete={async (milestoneId, data) => {
+                        await markMilestoneComplete(milestoneId);
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -574,7 +561,7 @@ export default function ProjectDetailsPage() {
                 <DollarSign className="w-5 h-5" />
                 Funding
               </CardTitle>
-              <Button size="sm" onClick={() => setAddFundingOpen(true)}>Log Funding</Button>
+              <Button size="sm" onClick={() => setAddFundingOpen(true)}>Create Funding</Button>
             </CardHeader>
             <CardContent>
               {fundingLoading ? (
@@ -696,27 +683,12 @@ export default function ProjectDetailsPage() {
           <UIDialogHeader>
             <UIDialogTitle>Add Milestone</UIDialogTitle>
           </UIDialogHeader>
-          <form onSubmit={handleSubmitMilestone(onAddMilestone)} className="space-y-4">
-            <div>
-              <Label htmlFor="milestone-title">Title</Label>
-              <Input id="milestone-title" {...registerMilestone("title", { required: "Title is required" })} />
-              {milestoneErrors.title && <p className="text-sm text-destructive mt-1">{milestoneErrors.title.message as string}</p>}
-            </div>
-            <div>
-              <Label htmlFor="milestone-description">Description</Label>
-              <Textarea id="milestone-description" {...registerMilestone("description")} />
-            </div>
-            <div>
-              <Label htmlFor="milestone-dueDate">Due Date</Label>
-              <Input id="milestone-dueDate" type="date" {...registerMilestone("dueDate")} />
-            </div>
-            <UIDialogFooter className="flex gap-2">
-              <Button type="submit" disabled={addMilestoneLoading || isSubmittingMilestone}>{addMilestoneLoading ? "Adding..." : "Add"}</Button>
-              <UIDialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
-              </UIDialogClose>
-            </UIDialogFooter>
-          </form>
+          <MilestoneForm
+            projectId={projectId}
+            onSubmit={onAddMilestone}
+            onCancel={() => setAddMilestoneOpen(false)}
+            loading={addMilestoneLoading || isSubmittingMilestone}
+          />
         </UIDialogContent>
       </UIDialog>
 
