@@ -1,5 +1,4 @@
-import { ethers } from 'ethers';
-import { parseEther, formatEther, isAddress, BrowserProvider } from 'ethers';
+import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes } from 'ethers';
 import SquadTrustABI from '../../contract/SquadTrust.abi.json';
 
 // Contract ABI - you'll need to compile the contract and import the ABI
@@ -131,7 +130,7 @@ export class SquadTrustService {
   async claimRole(projectId: string, role: string, stakeAmount: string): Promise<void> {
     try {
       const value = parseEther(stakeAmount);
-      const tx = await this.contract.claimRole(projectId, role, { value });
+      const tx = await this.contract.claimRole(getBytes(projectId), role, { value });
       await tx.wait();
     } catch (error) {
       console.error('Error claiming role:', error);
@@ -146,7 +145,7 @@ export class SquadTrustService {
    */
   async verifyRole(projectId: string, member: string): Promise<void> {
     try {
-      const tx = await this.contract.verifyRole(projectId, member);
+      const tx = await this.contract.verifyRole(getBytes(projectId), member);
       await tx.wait();
     } catch (error) {
       console.error('Error verifying role:', error);

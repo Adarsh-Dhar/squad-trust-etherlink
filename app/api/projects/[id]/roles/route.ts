@@ -6,10 +6,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
     const data = await req.json();
+    const { walletAddress, roleTitle, description } = data;
+    if (!walletAddress) {
+      return NextResponse.json({ error: 'Missing walletAddress' }, { status: 400 });
+    }
+    // Find or create user by walletAddress
+    let user = await prisma.user.findUnique({ where: { walletAddress: walletAddress.toLowerCase() } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          walletAddress: walletAddress.toLowerCase(),
+          name: `User ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
+        },
+      });
+    }
     const role = await prisma.contributorRole.create({
       data: {
-        ...data,
+        userId: user.id,
         projectId: id,
+        roleTitle,
+        description,
       },
     });
     return NextResponse.json(role);

@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { UserPlus } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { getBytes } from "ethers";
 
 interface ClaimRoleButtonProps {
   projectId: string;
@@ -86,15 +87,14 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
       }
 
       // Claim role on blockchain using the actual blockchain project ID
-      await squadTrustService.claimRole(blockchainProjectId, data.roleTitle, stakeAmount);
+      await squadTrustService.claimRole(getBytes(blockchainProjectId), data.roleTitle, stakeAmount);
 
       // Also create the role in the database
-      const MOCK_USER_ID = "cmd972xif0004u64it5kpuvec";
       const res = await fetch(`/api/projects/${projectId}/roles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: MOCK_USER_ID,
+          walletAddress: address,
           roleTitle: data.roleTitle,
           description: data.description,
         }),

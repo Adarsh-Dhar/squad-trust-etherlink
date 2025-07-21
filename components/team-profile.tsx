@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ClaimRoleButton } from "@/components/ui/claim-role-button";
+import { VerifyRoleButton } from "@/components/ui/verify-role-button";
 import { createSquadTrustService, getSigner } from "@/lib/contract";
 
 interface TeamMember {
@@ -614,10 +615,32 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                         </div>
                       </div>
                       <div className="mt-4 pt-4 border-t border-border">
-                        <ClaimRoleButton 
-                          projectId={project.id} 
-                          blockchainProjectId={project.blockchainProjectId}
-                        />
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium text-muted-foreground">Role Management</h4>
+                            {isMember && userRole === 'ADMIN' && (
+                              <div className="flex gap-2">
+                                {team.members
+                                  .filter(member => member.role !== 'ADMIN')
+                                  .map((member) => (
+                                    <VerifyRoleButton
+                                      key={`${project.id}-${member.id}`}
+                                      projectId={project.id}
+                                      blockchainProjectId={project.blockchainProjectId}
+                                      memberAddress={member.user.walletAddress}
+                                      memberName={member.user.name}
+                                      variant="outline"
+                                      size="sm"
+                                    />
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                          <ClaimRoleButton 
+                            projectId={project.id} 
+                            blockchainProjectId={project.blockchainProjectId}
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -707,8 +730,24 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                           </Badge>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="flex flex-col items-end gap-2">
                         <div className="text-sm text-muted-foreground">Joined {formatDate(member.joinedAt)}</div>
+                        {/* Show VerifyRoleButton for team admins and project creators */}
+                        {isMember && userRole === 'ADMIN' && member.role !== 'ADMIN' && (
+                          <div className="flex gap-2">
+                            {team.projects.map((project) => (
+                              <VerifyRoleButton
+                                key={`${member.id}-${project.id}`}
+                                projectId={project.id}
+                                blockchainProjectId={project.blockchainProjectId}
+                                memberAddress={member.user.walletAddress}
+                                memberName={member.user.name}
+                                variant="outline"
+                                size="sm"
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
