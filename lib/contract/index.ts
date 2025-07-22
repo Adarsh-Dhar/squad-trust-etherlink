@@ -1,5 +1,6 @@
-import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes } from 'ethers';
-import SquadTrustABI from '../../contract/SquadTrust.abi.json';
+import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes, formatBytes32String } from 'ethers';
+import { abi } from './abi';
+import { address as contractAddress } from './address';
 
 // Contract ABI - you'll need to compile the contract and import the ABI
 // For now, I'll define the essential types and interfaces
@@ -58,10 +59,9 @@ export class SquadTrustService {
   private contract: ethers.Contract;
   private signer: ethers.Signer;
 
-  constructor(contractAddress: string, signer: ethers.Signer) {
+  constructor(contractAddressParam: string = contractAddress, signer: ethers.Signer) {
     this.signer = signer;
-    // Fix: Use the ABI directly instead of SquadTrustABI.abi
-    this.contract = new ethers.Contract(contractAddress, SquadTrustABI, signer);
+    this.contract = new ethers.Contract(contractAddressParam, abi, signer);
   }
 
   // ============ CORE FUNCTIONS ============
@@ -133,7 +133,7 @@ export class SquadTrustService {
   async claimRole(projectId: string, role: string, stakeAmount: string): Promise<void> {
     try {
       const value = parseEther(stakeAmount);
-      const tx = await this.contract.claimRole(getBytes(projectId), role, { value });
+      const tx = await this.contract.claimRole(projectId, role, { value });
       await tx.wait();
     } catch (error) {
       console.error('Error claiming role:', error);
@@ -148,7 +148,13 @@ export class SquadTrustService {
    */
   async verifyRole(projectId: string, member: string): Promise<void> {
     try {
-      const tx = await this.contract.verifyRole(getBytes(projectId), member);
+      // Check if the member has claimed a role before verifying
+      const memberRole = await this.getMemberRole(projectId, member);
+      console.log('verifyRole: memberRole for', member, 'in project', projectId, '=', memberRole);
+      if (!memberRole || !memberRole.role || memberRole.role === "") {
+        throw new SquadTrustError('This member has not claimed a role and cannot be verified.');
+      }
+      const tx = await this.contract.verifyRole(projectId, member);
       await tx.wait();
     } catch (error) {
       console.error('Error verifying role:', error);
@@ -334,7 +340,7 @@ export class SquadTrustService {
    */
   async getProjectRoles(projectId: string): Promise<ProjectRole[]> {
     try {
-      const [members, roles] = await this.contract.getProjectRoles(getBytes(projectId));
+      const [members, roles] = await this.contract.getProjectRoles(projectId);
       const result: ProjectRole[] = [];
       for (let i = 0; i < members.length; i++) {
         result.push({

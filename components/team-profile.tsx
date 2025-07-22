@@ -585,16 +585,16 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const userRole = getCurrentUserRole();
 
   // Debug logging
-  console.log('Team Profile Debug:', {
-    address,
-    isConnected: !!address,
-    teamMembers: team.members.map(m => ({ 
-      walletAddress: m.user.walletAddress, 
-      role: m.role 
-    })),
-    isMember,
-    userRole
-  });
+  // console.log('Team Profile Debug:', {
+  //   address,
+  //   isConnected: !!address,
+  //   teamMembers: team.members.map(m => ({ 
+  //     walletAddress: m.user.walletAddress, 
+  //     role: m.role 
+  //   })),
+  //   isMember,
+  //   userRole
+  // });
 
   // Show wallet connection prompt if not connected
   if (!address) {
