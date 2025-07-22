@@ -519,6 +519,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       if (!signer) throw new Error('Please connect your wallet');
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
       const roles = await squadTrustService.getProjectRoles(project.blockchainProjectId);
+      console.log('getProjectRoles returned:', roles);
       setProjectRoles(roles);
     } catch (e: any) {
       setRolesError(e.message || 'Failed to fetch roles');
