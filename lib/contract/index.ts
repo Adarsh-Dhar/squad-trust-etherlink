@@ -25,6 +25,11 @@ export interface Milestone {
   confirmations: number;
 }
 
+export interface ProjectRole {
+  member: string;
+  role: string;
+}
+
 export interface SquadTrustContract {
   // Core Functions
   createProject(name: string, requiredConfirmations: number): Promise<string>;
@@ -42,6 +47,7 @@ export interface SquadTrustContract {
   getCredibilityScore(member: string): Promise<number>;
   getMilestone(projectId: string, milestoneId: number): Promise<Milestone>;
   getAllProjects(): Promise<string[]>;
+  getProjectRoles(projectId: string): Promise<ProjectRole[]>;
   
   // Constants
   MIN_STAKE(): Promise<string>;
@@ -110,11 +116,8 @@ export class SquadTrustService {
         }
       }
       
-      // If we can't get the projectId from logs, try to derive it
-      // The contract generates projectId using: keccak256(abi.encodePacked(name, msg.sender, block.timestamp))
-      // Since we can't know the exact block.timestamp, we'll use the transaction hash as a fallback
-      console.log("Could not determine project ID from transaction. Using transaction hash as fallback.");
-      return tx.hash;
+      // If we can't get the projectId from logs, throw an error
+      throw new Error("Could not determine project ID from transaction. Project creation failed.");
     } catch (error) {
       console.error('Error creating project:', error);
       throw error;
@@ -320,6 +323,28 @@ export class SquadTrustService {
       return await this.contract.getAllProjects();
     } catch (error) {
       console.error('Error getting all projects:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all roles of a project
+   * @param projectId The project identifier
+   * @returns Array of member addresses and their roles
+   */
+  async getProjectRoles(projectId: string): Promise<ProjectRole[]> {
+    try {
+      const [members, roles] = await this.contract.getProjectRoles(getBytes(projectId));
+      const result: ProjectRole[] = [];
+      for (let i = 0; i < members.length; i++) {
+        result.push({
+          member: members[i],
+          role: roles[i]
+        });
+      }
+      return result;
+    } catch (error) {
+      console.error('Error getting project roles:', error);
       throw error;
     }
   }

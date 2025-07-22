@@ -90,6 +90,12 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
 
+  // Add state for show roles modal
+  const [showRolesProject, setShowRolesProject] = useState<Project | null>(null);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [projectRoles, setProjectRoles] = useState<{ member: string; role: string }[]>([]);
+
   useEffect(() => {
     async function fetchTeam() {
       try {
@@ -499,6 +505,28 @@ export function TeamProfile({ teamId }: { teamId: string }) {
     }
   };
 
+  // Handler to fetch roles
+  const handleShowRoles = async (project: Project) => {
+    setShowRolesProject(project);
+    setRolesLoading(true);
+    setRolesError(null);
+    setProjectRoles([]);
+    try {
+      if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) {
+        throw new Error('Invalid blockchain project ID');
+      }
+      const signer = await getSigner();
+      if (!signer) throw new Error('Please connect your wallet');
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      const roles = await squadTrustService.getProjectRoles(project.blockchainProjectId);
+      setProjectRoles(roles);
+    } catch (e: any) {
+      setRolesError(e.message || 'Failed to fetch roles');
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
   const getTrustScoreColor = (score: number) => {
     if (score >= 90) return "from-green-500 to-emerald-500"
     if (score >= 80) return "from-blue-500 to-cyan-500"
@@ -845,6 +873,16 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                           {withdrawSuccess && withdrawingProjectId === project.id && (
                             <div className="text-green-500 text-xs mt-2">{withdrawSuccess}</div>
                           )}
+                          {project.blockchainProjectId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-2"
+                              onClick={() => handleShowRoles(project)}
+                            >
+                              Show Roles
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -1017,6 +1055,45 @@ export function TeamProfile({ teamId }: { teamId: string }) {
           </div>
         </TabsContent>
       </Tabs>
+      <Dialog open={!!showRolesProject} onOpenChange={(open) => { if (!open) setShowRolesProject(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Project Roles</DialogTitle>
+            <DialogDescription>
+              {showRolesProject ? showRolesProject.title : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {rolesLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading roles...</div>
+          ) : rolesError ? (
+            <div className="py-4 text-destructive text-center">{rolesError}</div>
+          ) : projectRoles.length === 0 ? (
+            <div className="py-4 text-center text-muted-foreground">No roles found for this project.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border rounded">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="px-4 py-2 text-left font-semibold">Member Address</th>
+                    <th className="px-4 py-2 text-left font-semibold">Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectRoles.map((role, idx) => (
+                    <tr key={role.member + role.role + idx} className="border-t">
+                      <td className="px-4 py-2 font-mono">{role.member}</td>
+                      <td className="px-4 py-2">{role.role}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowRolesProject(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
