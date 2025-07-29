@@ -8,7 +8,10 @@
     "lint": "next lint",
     "start": "next start",
     "dispute:auto-resolve": "tsx scripts/dispute-auto-resolve.ts",
-    "dispute:test": "tsx scripts/test-dispute-system.ts"
+    "dispute:test": "tsx scripts/test-dispute-system.ts",
+    "test:contract": "node scripts/test-contract-cli.js",
+    "test:contract:verbose": "node scripts/test-squadtrust-contract.js",
+    "setup:env": "node scripts/setup-env.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -47,6 +50,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
+    "dotenv": "^17.2.1",
     "embla-carousel-react": "8.5.1",
     "ethers": "^6.15.0",
     "input-otp": "1.4.1",
