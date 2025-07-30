@@ -38,7 +38,7 @@ interface TeamMember {
 
 interface Project {
   id: string;
-  title: string;
+  name: string; // Changed from title to name to match the schema
   description: string;
   status: string;
   createdAt: string;
@@ -181,7 +181,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
           currentAddress: address,
           projects: teamData.projects.map((p: any) => ({
             id: p.id,
-            title: p.title,
+            name: p.name,
             blockchainProjectId: p.blockchainProjectId
           }))
         });
@@ -271,7 +271,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         // Only call if blockchainProjectId is a valid 0x-prefixed 32-byte hex string
         if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) return;
         try {
-          const role = await squadTrustService.getMemberRole(getBytes(project.blockchainProjectId), address);
+          const role = await squadTrustService.getMemberRole(project.blockchainProjectId, address);
           if (role) {
             updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
           }
@@ -901,7 +901,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                       <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-semibold">{project.title}</h3>
+                            <h3 className="text-xl font-semibold">{project.name}</h3>
                             <Badge variant={statusBadge.variant} className={statusBadge.className}>
                               {statusBadge.icon}
                               {project.status}
@@ -1041,7 +1041,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               team.projects.flatMap(project => 
                 project.funding.map(fund => ({
                   ...fund,
-                  projectTitle: project.title,
+                  projectTitle: project.name,
                   projectId: project.id
                 }))
               ).map((funding, index) => (
@@ -1082,7 +1082,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                   <select id="funding-project" {...registerFunding("projectId", { required: "Project is required" })} className="w-full border rounded p-2">
                     <option value="">Select a project</option>
                     {team.projects.map(project => (
-                      <option key={project.id} value={project.id}>{project.title}</option>
+                      <option key={project.id} value={project.id}>{project.name}</option>
                     ))}
                   </select>
                   {fundingErrors.projectId && <p className="text-sm text-destructive mt-1">{fundingErrors.projectId.message as string}</p>}
@@ -1211,7 +1211,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
           <DialogHeader>
             <DialogTitle>Project Roles</DialogTitle>
             <DialogDescription>
-              {showRolesProject ? showRolesProject.title : ''}
+              {showRolesProject ? showRolesProject.name : ''}
             </DialogDescription>
           </DialogHeader>
           {rolesLoading ? (

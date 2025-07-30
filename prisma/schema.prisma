@@ -24,6 +24,7 @@ model User {
   milestoneVerifications MilestoneVerification[]
   notifications  Notification[]
   joinRequests   JoinRequest[]
+  applications   Application[]
   
   // Scoring system relationships
   scoreData      UserScoreData?
@@ -65,18 +66,23 @@ enum TeamMemberRole {
 
 model Project {
   id                 String       @id @default(cuid())
-  team               Team         @relation(fields: [teamId], references: [id])
-  teamId             String
   creator            String       // Wallet address of the project creator
-  title              String
+  name               String?      // Changed from title to name, made optional for migration
   description        String
+  skillsRequired     String?      // New field, made optional for migration
+  minimumStake       Float?       // New field, made optional for migration
+  fundingAmount      Float?       // New field, made optional for migration
+  status             ProjectStatus @default(HIRING)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  // Keep existing relationships for backward compatibility
+  team               Team?        @relation(fields: [teamId], references: [id])
+  teamId             String?
   githubRepo         String?
   liveUrl            String?
   deliveryHash       String? // hash of final delivery artifact (IPFS, Arweave, etc.)
   blockchainProjectId String?     // Blockchain project ID from smart contract
-  status             ProjectStatus @default(ONGOING)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
   
   // Scoring system fields
   projectType        ProjectType? @default(STARTUP)
@@ -91,6 +97,7 @@ model Project {
   signatures     ProjectSignature[]
   investorSignatures InvestorSignature[]
   milestoneInvestorSignatures MilestoneInvestorSignature[]
+  applications   Application[]
   
   // Scoring system relationships
   scoreData      ProjectScoreData?
@@ -98,10 +105,33 @@ model Project {
 }
 
 enum ProjectStatus {
-  ONGOING
-  COMPLETED
-  FAILED
-  ABANDONED
+  HIRING
+  HIRED
+  FINISHED
+  FUNDS_DISTRIBUTED
+}
+
+model Application {
+  id              String           @id @default(cuid())
+  project         Project          @relation(fields: [projectId], references: [id])
+  projectId       String
+  applicant       User             @relation(fields: [applicantId], references: [id])
+  applicantId     String
+  coverLetter     String
+  proposedStake   Float            // Amount the applicant is willing to stake
+  status          ApplicationStatus @default(PENDING)
+  appliedAt       DateTime         @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?          // Wallet address of reviewer
+  
+  @@unique([projectId, applicantId])
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
 }
 
 enum ProjectType {

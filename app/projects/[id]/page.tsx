@@ -32,14 +32,17 @@ import { useWallet } from "@/hooks/useWallet";
 
 interface Project {
   id: string;
-  title: string;
+  name?: string; // Changed from title to name, made optional for migration
   description?: string;
   creator: string; // Wallet address of the project creator
-  teamId: string;
-  githubRepo?: string;
-  liveUrl?: string;
-  status?: string;
+  skillsRequired?: string; // New field, made optional for migration
+  minimumStake?: number; // New field, made optional for migration
+  fundingAmount?: number; // New field, made optional for migration
+  status?: string; // Updated status enum
   blockchainProjectId?: string; // Added for on-chain completion
+  teamId?: string; // Optional for backward compatibility
+  githubRepo?: string; // Optional for backward compatibility
+  liveUrl?: string; // Optional for backward compatibility
 }
 
 interface Milestone {
@@ -59,6 +62,19 @@ interface Funding {
   receivedAt?: string;
 }
 
+interface Application {
+  id: string;
+  applicantId: string;
+  applicant: {
+    name?: string;
+    walletAddress: string;
+  };
+  coverLetter: string;
+  proposedStake: number;
+  status: string;
+  appliedAt: string;
+}
+
 export default function ProjectDetailsPage() {
   const router = useRouter();
   const params = useParams();
@@ -69,7 +85,7 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [editData, setEditData] = useState({ title: "", description: "", githubRepo: "", liveUrl: "" });
+  const [editData, setEditData] = useState({ name: "", description: "", skillsRequired: "", minimumStake: 0, fundingAmount: 0 });
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [completeLoading, setCompleteLoading] = useState(false);
@@ -87,6 +103,9 @@ export default function ProjectDetailsPage() {
   const [onchainCompleteLoading, setOnchainCompleteLoading] = useState(false);
   const [onchainCompleteError, setOnchainCompleteError] = useState<string | null>(null);
   const [onchainCompleteSuccess, setOnchainCompleteSuccess] = useState<string | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(null);
 
   // Milestone form
   const { register: registerMilestone, handleSubmit: handleSubmitMilestone, reset: resetMilestone, formState: { errors: milestoneErrors, isSubmitting: isSubmittingMilestone } } = useForm();
@@ -262,13 +281,33 @@ export default function ProjectDetailsPage() {
     if (projectId) fetchFunding();
   }, [projectId]);
 
+  // Fetch applications
+  useEffect(() => {
+    async function fetchApplications() {
+      setApplicationsLoading(true);
+      setApplicationsError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/applications`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch applications");
+        setApplications(data);
+      } catch (e: any) {
+        setApplicationsError(e.message || "Failed to load applications");
+      } finally {
+        setApplicationsLoading(false);
+      }
+    }
+    if (projectId) fetchApplications();
+  }, [projectId]);
+
   const openEdit = () => {
     if (project) {
       setEditData({
-        title: project.title || "",
+        name: project.name || "",
         description: project.description || "",
-        githubRepo: project.githubRepo || "",
-        liveUrl: project.liveUrl || "",
+        skillsRequired: project.skillsRequired || "",
+        minimumStake: project.minimumStake || 0,
+        fundingAmount: project.fundingAmount || 0,
       });
       setEditOpen(true);
     }
@@ -320,8 +359,8 @@ export default function ProjectDetailsPage() {
       const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to mark as completed");
-      setProject((prev) => prev ? { ...prev, status: "COMPLETED" } : prev);
-      setSuccessMsg("Project marked as completed!");
+      setProject((prev) => prev ? { ...prev, status: "HIRED" } : prev);
+      setSuccessMsg("Project marked as hired!");
     } catch (e: any) {
       setError(e.message || "Failed to mark as completed");
     } finally {
@@ -347,8 +386,8 @@ export default function ProjectDetailsPage() {
       const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to mark as completed in DB");
-      setProject((prev) => prev ? { ...prev, status: "COMPLETED" } : prev);
-      setOnchainCompleteSuccess("Project completed on-chain and in database!");
+      setProject((prev) => prev ? { ...prev, status: "HIRED" } : prev);
+      setOnchainCompleteSuccess("Project marked as hired on-chain and in database!");
     } catch (e: any) {
       setOnchainCompleteError(e.message || "Failed to complete project");
     } finally {
@@ -499,7 +538,11 @@ export default function ProjectDetailsPage() {
         if (!signer) return;
         const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
         const role = await squadTrustService.getMemberRole(projectId, walletAddress);
-        setOnChainUserRole({ verified: role.verified, stakeAmount: role.stakeAmount });
+        if (role) {
+          setOnChainUserRole({ verified: role.verified || false, stakeAmount: role.stakeAmount || "0" });
+        } else {
+          setOnChainUserRole(null);
+        }
       } catch {
         setOnChainUserRole(null);
       }
@@ -532,10 +575,15 @@ export default function ProjectDetailsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{project.name || "Untitled Project"}</h1>
             <div className="flex items-center gap-2 mt-2">
-              <Badge variant={project.status === "COMPLETED" ? "default" : "secondary"}>
-                {project.status || "ONGOING"}
+              <Badge variant={
+                project.status === "FINISHED" ? "default" : 
+                project.status === "HIRED" ? "secondary" :
+                project.status === "FUNDS_DISTRIBUTED" ? "default" :
+                "secondary"
+              }>
+                {project.status || "HIRING"}
               </Badge>
             </div>
           </div>
@@ -548,10 +596,10 @@ export default function ProjectDetailsPage() {
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </Button>
-            {project.status !== "COMPLETED" && (
+            {project.status === "HIRING" && (
               <Button size="sm" onClick={handleCompleteOnchainAndDB} disabled={onchainCompleteLoading} className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {onchainCompleteLoading ? "Completing..." : "Complete (On-chain)"}
+                {onchainCompleteLoading ? "Completing..." : "Mark as Hired"}
               </Button>
             )}
             {/* Withdraw Stake Button for current user (on-chain check) */}
@@ -576,12 +624,11 @@ export default function ProjectDetailsPage() {
 
       {/* Main Content with Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="applications">Applications</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="funding">Funding</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="approval">Approval</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -602,38 +649,72 @@ export default function ProjectDetailsPage() {
                   {project.creator}
                 </p>
               </div>
-              
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Skills Required</Label>
+                <p className="text-gray-600 mt-1">{project.skillsRequired || "Not specified"}</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <Github className="w-4 h-4" />
-                    GitHub Repository
-                  </Label>
-                  {project.githubRepo ? (
-                    <a href={project.githubRepo} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm flex items-center gap-1 mt-1">
-                      {project.githubRepo}
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  ) : (
-                    <span className="text-gray-500 text-sm">Not provided</span>
-                  )}
+                  <Label className="text-sm font-medium text-gray-700">Minimum Stake</Label>
+                  <p className="text-gray-600 mt-1">{project.minimumStake ? `${project.minimumStake} ETH` : "Not specified"}</p>
                 </div>
                 
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Live URL
-                  </Label>
-                  {project.liveUrl ? (
-                    <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline text-sm flex items-center gap-1 mt-1">
-                      {project.liveUrl}
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  ) : (
-                    <span className="text-gray-500 text-sm">Not provided</span>
-                  )}
+                  <Label className="text-sm font-medium text-gray-700">Funding Amount</Label>
+                  <p className="text-gray-600 mt-1">{project.fundingAmount ? `${project.fundingAmount} ETH` : "Not specified"}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Applications Tab */}
+        <TabsContent value="applications" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Applications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {applicationsLoading ? (
+                <div className="text-muted-foreground">Loading applications...</div>
+              ) : applicationsError ? (
+                <div className="text-destructive">{applicationsError}</div>
+              ) : applications.length === 0 ? (
+                <div className="text-muted-foreground">No applications yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {applications.map((application) => (
+                    <div key={application.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card">
+                      <div className="flex-1">
+                        <div className="font-medium">{application.applicant.name || application.applicant.walletAddress}</div>
+                        <div className="text-sm text-muted-foreground">{application.coverLetter}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Proposed Stake: <span className="font-semibold">{application.proposedStake} ETH</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Applied: {new Date(application.appliedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0">
+                        <Badge variant={application.status === "ACCEPTED" ? "default" : application.status === "REJECTED" ? "destructive" : "secondary"}>
+                          {application.status}
+                        </Badge>
+                        {application.status === "PENDING" && (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline">Accept</Button>
+                            <Button size="sm" variant="destructive">Reject</Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -712,105 +793,6 @@ export default function ProjectDetailsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Roles Tab */}
-        <TabsContent value="roles" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Roles
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {rolesLoading ? (
-                <div className="text-muted-foreground">Loading roles...</div>
-              ) : rolesError ? (
-                <div className="text-destructive">{rolesError}</div>
-              ) : roles.length === 0 ? (
-                <div className="text-muted-foreground">No roles claimed yet.</div>
-              ) : (
-                <div className="space-y-3">
-                  {roles.map((role) => (
-                    <div key={role.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card">
-                      <div className="flex-1">
-                        <div className="font-medium">{role.roleTitle}</div>
-                        <div className="text-sm text-muted-foreground">{role.description}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Claimed by: <span className="font-semibold">{role.user?.name || role.user?.walletAddress || "Unknown"}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0">
-                        <Badge variant={role.verified ? "default" : "secondary"}>
-                          {role.verified ? "Verified" : "Unverified"}
-                        </Badge>
-                        {role.verifications && role.verifications.length > 0 && (
-                          <Button size="sm" variant="outline" onClick={() => openViewVerifications(role.id)}>
-                            View Verifications ({role.verifications.length})
-                          </Button>
-                        )}
-                        {role.userId === MOCK_USER_ID ? (
-                          <Button size="sm" variant="outline" onClick={() => openEditRole(role)}>Edit</Button>
-                        ) : (
-                          <Button size="sm" onClick={() => openVerifyRole(role.id)}>Verify</Button>
-                        )}
-                        {/* Withdraw Stake Button */}
-                        {role.userId === MOCK_USER_ID && role.verified && Number(role.stakeAmount) > 0 && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleWithdrawStake(role)}
-                            disabled={withdrawingRoleId === role.id}
-                            className="mt-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition-all"
-                          >
-                            {withdrawingRoleId === role.id ? "Withdrawing..." : `Withdraw Stake (${role.stakeAmount} ETH)`}
-                          </Button>
-                        )}
-                        {withdrawError && withdrawingRoleId === role.id && (
-                          <div className="text-destructive text-xs mt-2">{withdrawError}</div>
-                        )}
-                        {withdrawSuccess && withdrawingRoleId === role.id && (
-                          <div className="text-green-500 text-xs mt-2">{withdrawSuccess}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <form onSubmit={handleSubmitRole(onClaimRole)} className="w-full space-y-4">
-                <Label htmlFor="roleTitle">Claim a Role</Label>
-                <Input id="roleTitle" placeholder="Role title (e.g. Frontend Dev)" {...registerRole("roleTitle", { required: "Role title is required" })} />
-                {roleErrors.roleTitle && <p className="text-sm text-destructive mt-1">{roleErrors.roleTitle.message as string}</p>}
-                <Textarea id="roleDescription" placeholder="Describe your contribution..." {...registerRole("description", { required: "Description is required" })} />
-                {roleErrors.description && <p className="text-sm text-destructive mt-1">{roleErrors.description.message as string}</p>}
-                {claimError && <p className="text-sm text-destructive mt-2">{claimError}</p>}
-                {claimSuccess && <p className="text-sm text-green-600 mt-2">Role claimed successfully!</p>}
-                <Button type="submit" className="w-full" disabled={isClaiming}>{isClaiming ? "Claiming..." : "Claim Role"}</Button>
-              </form>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        {/* Approval Tab */}
-        <TabsContent value="approval" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Project Approval
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SignatureWidget
-                type="project"
-                id={projectId}
-                title={project?.title || ""}
-                teamId={project?.teamId || ""}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Add Milestone Dialog */}
@@ -872,19 +854,23 @@ export default function ProjectDetailsPage() {
           <form onSubmit={handleEdit} className="space-y-4">
             <div>
               <Label htmlFor="title">Title</Label>
-              <Input id="title" value={editData.title} onChange={e => setEditData({ ...editData, title: e.target.value })} required />
+              <Input id="title" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} required />
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" value={editData.description} onChange={e => setEditData({ ...editData, description: e.target.value })} required />
             </div>
             <div>
-              <Label htmlFor="githubRepo">GitHub Repo</Label>
-              <Input id="githubRepo" type="url" value={editData.githubRepo} onChange={e => setEditData({ ...editData, githubRepo: e.target.value })} />
+              <Label htmlFor="skillsRequired">Skills Required</Label>
+              <Input id="skillsRequired" value={editData.skillsRequired} onChange={e => setEditData({ ...editData, skillsRequired: e.target.value })} />
             </div>
             <div>
-              <Label htmlFor="liveUrl">Live URL</Label>
-              <Input id="liveUrl" type="url" value={editData.liveUrl} onChange={e => setEditData({ ...editData, liveUrl: e.target.value })} />
+              <Label htmlFor="minimumStake">Minimum Stake</Label>
+              <Input id="minimumStake" type="number" value={editData.minimumStake} onChange={e => setEditData({ ...editData, minimumStake: Number(e.target.value) })} />
+            </div>
+            <div>
+              <Label htmlFor="fundingAmount">Funding Amount</Label>
+              <Input id="fundingAmount" type="number" value={editData.fundingAmount} onChange={e => setEditData({ ...editData, fundingAmount: Number(e.target.value) })} />
             </div>
             <UIDialogFooter className="flex gap-2">
               <Button type="submit" className="flex-1" disabled={editLoading}>{editLoading ? "Saving..." : "Save"}</Button>

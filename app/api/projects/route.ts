@@ -96,11 +96,11 @@ export async function POST(req: NextRequest) {
     // Create the project
     const project = await prisma.project.create({
       data: {
-        title,
+        name: title, // Use 'name' instead of 'title' to match the schema
         description,
         githubRepo: githubRepo || null,
         liveUrl: liveUrl || null,
-        status: 'ONGOING',
+        status: 'HIRING', // Use correct enum value
         creator: session.user.walletAddress.toLowerCase(),
         teamId: placeholderTeam.id,
       },

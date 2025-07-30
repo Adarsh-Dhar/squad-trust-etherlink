@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, GitBranch, Globe, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, GitBranch, Globe, AlertCircle, Wallet } from 'lucide-react';
+import { useWallet } from '@/hooks/useWallet';
 
 interface CreateProjectForm {
   title: string;
@@ -14,6 +15,7 @@ interface CreateProjectForm {
 
 export default function CreateProjectPage() {
   const router = useRouter();
+  const { address: connectedWallet, isConnected, connectWallet, isConnecting } = useWallet();
   const [formData, setFormData] = useState<CreateProjectForm>({
     title: '',
     description: '',
@@ -33,6 +35,12 @@ export default function CreateProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isConnected) {
+      setError('Please connect your wallet to create a project');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -47,7 +55,7 @@ export default function CreateProjectPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create project');
+        throw new Error(errorData.error || 'Failed to create project');
       }
 
       const project = await response.json();
@@ -58,6 +66,51 @@ export default function CreateProjectPage() {
       setLoading(false);
     }
   };
+
+  // Show wallet connection prompt if not connected
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <Link
+              href="/projects"
+              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Projects
+            </Link>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Publish Your Project</h1>
+            <p className="text-gray-600 text-lg">Share your project idea and let teams apply to work on it</p>
+          </div>
+
+          {/* Wallet Connection Required */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Wallet className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Connect Your Wallet</h2>
+            <p className="text-gray-600 mb-6">
+              You need to connect your wallet to create a project. This ensures you can manage your projects securely.
+            </p>
+            <button
+              onClick={connectWallet}
+              disabled={isConnecting}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {isConnecting ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Wallet className="w-5 h-5" />
+              )}
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -73,6 +126,11 @@ export default function CreateProjectPage() {
           </Link>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Publish Your Project</h1>
           <p className="text-gray-600 text-lg">Share your project idea and let teams apply to work on it</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Connected wallet: <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+              {connectedWallet?.slice(0, 6)}...{connectedWallet?.slice(-4)}
+            </span>
+          </p>
         </div>
 
         {/* Form */}

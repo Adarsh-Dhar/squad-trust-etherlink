@@ -157,7 +157,7 @@ export function BlockchainProjectExample() {
                   <div className="space-y-1 text-sm text-blue-800">
                     <p><strong>Database ID:</strong> {createdProject.id}</p>
                     <p><strong>Blockchain ID:</strong> {createdProject.blockchainProjectId}</p>
-                    <p><strong>Title:</strong> {createdProject.title}</p>
+                    <p><strong>Title:</strong> {createdProject.name}</p>
                     <p><strong>Status:</strong> {createdProject.status}</p>
                   </div>
                 </div>

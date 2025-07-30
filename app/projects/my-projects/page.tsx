@@ -7,9 +7,9 @@ import { useWallet } from '@/hooks/useWallet';
 
 interface Project {
   id: string;
-  title: string;
+  name: string; // Changed from title to name to match the schema
   description: string;
-  status: 'ONGOING' | 'COMPLETED' | 'FAILED' | 'ABANDONED';
+  status: 'HIRING' | 'HIRED' | 'FINISHED' | 'FUNDS_DISTRIBUTED';
   creator: string; // Wallet address of the project creator
   githubRepo?: string;
   liveUrl?: string;
@@ -95,14 +95,14 @@ export default function MyProjectsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
+      case 'FINISHED':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'ONGOING':
+      case 'HIRING':
         return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'FAILED':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      case 'ABANDONED':
-        return <AlertCircle className="w-4 h-4 text-orange-500" />;
+      case 'HIRED':
+        return <Clock className="w-4 h-4 text-yellow-500" />;
+      case 'FUNDS_DISTRIBUTED':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-500" />;
     }
@@ -110,14 +110,14 @@ export default function MyProjectsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
+      case 'FINISHED':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'ONGOING':
+      case 'HIRING':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'FAILED':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'ABANDONED':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'HIRED':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'FUNDS_DISTRIBUTED':
+        return 'bg-green-100 text-green-800 border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -214,9 +214,9 @@ export default function MyProjectsPage() {
             All Projects
           </button>
           <button
-            onClick={() => setStatusFilter('ONGOING')}
+            onClick={() => setStatusFilter('HIRING')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              statusFilter === 'ONGOING'
+              statusFilter === 'HIRING'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
             }`}
@@ -224,9 +224,9 @@ export default function MyProjectsPage() {
             Ongoing
           </button>
           <button
-            onClick={() => setStatusFilter('COMPLETED')}
+            onClick={() => setStatusFilter('FINISHED')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              statusFilter === 'COMPLETED'
+              statusFilter === 'FINISHED'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
             }`}
@@ -234,9 +234,9 @@ export default function MyProjectsPage() {
             Completed
           </button>
           <button
-            onClick={() => setStatusFilter('FAILED')}
+            onClick={() => setStatusFilter('HIRED')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              statusFilter === 'FAILED'
+              statusFilter === 'HIRED'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
             }`}
@@ -271,7 +271,7 @@ export default function MyProjectsPage() {
                 <div className="p-6 border-b border-gray-100">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="text-xl font-semibold text-gray-900 truncate">
-                      {project.title}
+                      {project.name}
                     </h3>
                     <div className="flex items-center gap-1">
                       {getStatusIcon(project.status)}

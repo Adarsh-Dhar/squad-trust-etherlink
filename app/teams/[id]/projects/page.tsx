@@ -97,7 +97,7 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
               continue;
             }
 
-            console.log(`\n--- Project: ${project.title} (${project.id}) ---`);
+            console.log(`\n--- Project: ${project.name} (${project.id}) ---`);
             console.log(`Blockchain Project ID: ${project.blockchainProjectId}`);
 
             try {

@@ -8,7 +8,7 @@ import Link from "next/link";
 
 interface Project {
   id: string;
-  title: string;
+  name: string; // Changed from title to name
   description?: string;
   creator: string; // Wallet address of the project creator
   teamId: string;
@@ -67,7 +67,7 @@ export default function AllProjectsPage() {
   const filteredProjects = projects.filter((project) => {
     const term = search.toLowerCase();
     return (
-      project.title.toLowerCase().includes(term) ||
+      project.name.toLowerCase().includes(term) ||
       (project.description && project.description.toLowerCase().includes(term)) ||
       (teams[project.teamId]?.name?.toLowerCase().includes(term))
     );
@@ -105,7 +105,7 @@ export default function AllProjectsPage() {
                   <CardContent className="p-6 flex flex-col h-full">
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-1">
-                        {project.title}
+                        {project.name}
                       </h3>
                       <p className="text-sm text-muted-foreground mb-2">
                         {project.description || "No description"}
