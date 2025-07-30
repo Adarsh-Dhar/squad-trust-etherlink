@@ -10,6 +10,7 @@ interface Project {
   id: string;
   title: string;
   description?: string;
+  creator: string; // Wallet address of the project creator
   teamId: string;
   githubRepo?: string;
   liveUrl?: string;
@@ -111,6 +112,11 @@ export default function AllProjectsPage() {
                       </p>
                       <div className="text-xs text-muted-foreground mb-2">
                         Team: <span className="font-medium text-primary">{teams[project.teamId]?.name || project.teamId}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Created by: <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {project.creator.slice(0, 6)}...{project.creator.slice(-4)}
+                        </span>
                       </div>
                       {project.githubRepo && (
                         <a

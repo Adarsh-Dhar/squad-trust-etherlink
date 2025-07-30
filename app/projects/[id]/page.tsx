@@ -34,6 +34,7 @@ interface Project {
   id: string;
   title: string;
   description?: string;
+  creator: string; // Wallet address of the project creator
   teamId: string;
   githubRepo?: string;
   liveUrl?: string;
@@ -593,6 +594,13 @@ export default function ProjectDetailsPage() {
               <div>
                 <Label className="text-sm font-medium text-gray-700">Description</Label>
                 <p className="text-gray-600 mt-1 whitespace-pre-line">{project.description || "No description provided"}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Created by</Label>
+                <p className="text-gray-600 mt-1 font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
+                  {project.creator}
+                </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

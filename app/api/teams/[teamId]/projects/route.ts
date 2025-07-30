@@ -118,6 +118,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tea
       data: {
         ...projectData,
         teamId,
+        creator: walletAddress.toLowerCase(), // Set the creator as the wallet address
         blockchainProjectId: blockchainProjectId, // Store the blockchain project ID
         status: 'ONGOING',
       },
@@ -147,6 +148,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ team
     const { teamId } = await params;
     const projects = await prisma.project.findMany({
       where: { teamId },
+      include: {
+        milestones: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        funding: true,
+        roles: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
     return NextResponse.json(projects);
   } catch (error) {
