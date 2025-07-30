@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut } from "lucide-react"
+import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut, TrendingUp } from "lucide-react"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,7 @@ import { VerifyRoleButton } from "@/components/ui/verify-role-button";
 import { createSquadTrustService, getSigner } from "@/lib/contract";
 import { address as CONTRACT_ADDRESS } from "@/lib/contract/address";
 import { getBytes } from "ethers";
+import { calculateScore } from "@/lib/score";
 
 interface TeamMember {
   id: string;
@@ -95,6 +96,64 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const [rolesLoading, setRolesLoading] = useState(false);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [projectRoles, setProjectRoles] = useState<{ member: string; role: string }[]>([]);
+
+  // Add state for member scores
+  const [memberScores, setMemberScores] = useState<Record<string, number>>({});
+  const [scoreLoading, setScoreLoading] = useState<Record<string, boolean>>({});
+
+  // Function to fetch score for a specific member
+  const fetchMemberScore = async (memberAddress: string) => {
+    setScoreLoading(prev => ({ ...prev, [memberAddress]: true }));
+    try {
+      // Use the API endpoint to get the score
+      const response = await fetch(`/api/users/wallet/${memberAddress}/score`);
+      if (response.ok) {
+        const data = await response.json();
+        setMemberScores(prev => ({ ...prev, [memberAddress]: data.score }));
+      } else {
+        // Fallback to direct function call if API fails
+        const score = calculateScore(memberAddress);
+        setMemberScores(prev => ({ ...prev, [memberAddress]: score }));
+      }
+    } catch (error) {
+      console.error('Error fetching score for member:', memberAddress, error);
+      // Fallback to direct function call
+      try {
+        const score = calculateScore(memberAddress);
+        setMemberScores(prev => ({ ...prev, [memberAddress]: score }));
+      } catch (fallbackError) {
+        console.error('Fallback score calculation failed:', fallbackError);
+      }
+    } finally {
+      setScoreLoading(prev => ({ ...prev, [memberAddress]: false }));
+    }
+  };
+
+  // Function to get score for a member (with loading state)
+  const getMemberScore = (memberAddress: string) => {
+    if (scoreLoading[memberAddress]) {
+      return 'Loading...';
+    }
+    return memberScores[memberAddress] || 'N/A';
+  };
+
+  // Function to get score color based on score value
+  const getScoreColor = (score: number) => {
+    if (score >= 800) return 'text-green-600';
+    if (score >= 600) return 'text-blue-600';
+    if (score >= 400) return 'text-yellow-600';
+    if (score >= 200) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  // Function to get score badge variant
+  const getScoreBadge = (score: number) => {
+    if (score >= 800) return 'bg-green-100 text-green-800';
+    if (score >= 600) return 'bg-blue-100 text-blue-800';
+    if (score >= 400) return 'bg-yellow-100 text-yellow-800';
+    if (score >= 200) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
 
   useEffect(() => {
     async function fetchTeam() {
@@ -1097,6 +1156,31 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <div className="text-sm text-muted-foreground">Joined {formatDate(member.joinedAt)}</div>
+                        
+                        {/* Score Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchMemberScore(member.user.walletAddress)}
+                          disabled={scoreLoading[member.user.walletAddress]}
+                          className="flex items-center gap-2"
+                        >
+                          <TrendingUp className="h-4 w-4" />
+                          {scoreLoading[member.user.walletAddress] ? 'Loading...' : 'Score'}
+                        </Button>
+                        
+                        {/* Display Score */}
+                        {memberScores[member.user.walletAddress] !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="secondary" 
+                              className={getScoreBadge(memberScores[member.user.walletAddress])}
+                            >
+                              Score: {memberScores[member.user.walletAddress]}
+                            </Badge>
+                          </div>
+                        )}
+                        
                         {/* Show VerifyRoleButton for team admins and project creators */}
                         {isMember && userRole === 'ADMIN' && member.role !== 'ADMIN' && (
                           <div className="flex gap-2">

@@ -59,55 +59,7 @@ export const INACTIVE_MONTHS_THRESHOLD = 6;
 export const DECAY_FACTOR_PER_MONTH = 1; // 1% decay per month after 6 months
 
 // Global state (in production, this would be stored in a database)
-const scoreRegistry: Record<string, ScoreData> = {
-  // Sample data for testing
-  "0x1234567890123456789012345678901234567890": {
-    projectsShipped: 5,
-    onTimeRate: 85,
-    budgetAccuracy: 90,
-    abandonedProjects: 0,
-    lastActivity: Math.floor(Date.now() / 1000),
-    credibilityScore: 250,
-    totalScore: 0
-  },
-  "0x2345678901234567890123456789012345678901": {
-    projectsShipped: 3,
-    onTimeRate: 75,
-    budgetAccuracy: 80,
-    abandonedProjects: 1,
-    lastActivity: Math.floor(Date.now() / 1000),
-    credibilityScore: 150,
-    totalScore: 0
-  },
-  "0x3456789012345678901234567890123456789012": {
-    projectsShipped: 8,
-    onTimeRate: 95,
-    budgetAccuracy: 95,
-    abandonedProjects: 0,
-    lastActivity: Math.floor(Date.now() / 1000),
-    credibilityScore: 400,
-    totalScore: 0
-  },
-  // Actual wallet address from the database
-  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266": {
-    projectsShipped: 7,
-    onTimeRate: 88,
-    budgetAccuracy: 92,
-    abandonedProjects: 0,
-    lastActivity: Math.floor(Date.now() / 1000),
-    credibilityScore: 320,
-    totalScore: 0
-  },
-  "0x70997970c51812dc3a010c7d01b50e0d17dc79c8": {
-    projectsShipped: 4,
-    onTimeRate: 92,
-    budgetAccuracy: 87,
-    abandonedProjects: 0,
-    lastActivity: Math.floor(Date.now() / 1000),
-    credibilityScore: 280,
-    totalScore: 0
-  }
-};
+const scoreRegistry: Record<string, ScoreData> = {};
 const milestoneRegistry: Record<string, Record<number, MilestoneData>> = {};
 const projectRegistry: Record<string, ProjectData> = {};
 const abandonedVotes: Record<string, number> = {};
