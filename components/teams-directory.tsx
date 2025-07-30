@@ -13,6 +13,7 @@ import { CreateProjectForm } from "@/components/create-project-form";
 import { useSession } from "next-auth/react";
 import { Fragment, } from "react";
 import NotificationBell from "@/components/ui/NotificationBell";
+import { calculateTeamScore } from "@/lib/score";
 
 // Trust score color
 function getTrustScoreColor(score: number) {
@@ -56,11 +57,7 @@ export function TeamsDirectory() {
             // Trust Score
             let trustScore = null
             try {
-              const scoreRes = await fetch(`/api/teams/${team.id}/score`)
-              if (scoreRes.ok) {
-                const scoreData = await scoreRes.json()
-                trustScore = scoreData.score ? Math.round(scoreData.score) : null
-              }
+              trustScore = Math.round(calculateTeamScore(team.id).totalScore * 100)
             } catch {}
             
             // Members
@@ -370,7 +367,7 @@ export function TeamsDirectory() {
 }
 
 // Helper to render a team card (to avoid code duplication)
-function renderTeamCard(team: any, index: number, {
+function renderTeamCard(team: any, idx: number, {
   joining,
   leaving,
   handleJoin,
@@ -381,147 +378,160 @@ function renderTeamCard(team: any, index: number, {
   handleJoin: (teamId: string) => void,
   setShowConfirm: (val: { teamId: string | null }) => void
 }) {
-  const handleScore = async (teamId: string) => {
-    try {
-      const response = await fetch(`/api/teams/${teamId}/members/score`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+  const [scoreOpen, setScoreOpen] = React.useState(false);
+  const [teamScore, setTeamScore] = React.useState<any | null>(null);
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.memberScores.length === 0) {
-          alert('No members found in this team.');
-          return;
-        }
-
-        // Create a detailed score report
-        const scoreReport = result.memberScores.map((member: any) => 
-          `${member.userName}: ${member.score} points`
-        ).join('\n');
-        
-        const message = `Team Score Report:\n\n` +
-          `Average Score: ${result.averageScore} points\n` +
-          `Total Members: ${result.totalMembers}\n\n` +
-          `Individual Scores:\n${scoreReport}`;
-        
-        alert(message);
-      } else {
-        const error = await response.json();
-        alert(`Error calculating scores: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error calculating scores:', error);
-      alert('Failed to calculate scores');
-    }
+  const handleScore = (teamId: string) => {
+    const score = calculateTeamScore(teamId);
+    setTeamScore(score);
+    setScoreOpen(true);
   };
 
   return (
-    <Card
-      key={team.id}
-      className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
-      style={{ animationDelay: `${index * 0.1}s` }}
-    >
-      <CardContent className="p-6">
-        {/* Team Header */}
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="text-3xl">🏢</div>
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
-            <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
+    <>
+      <Card
+        key={team.id}
+        className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer animate-slide-up"
+        style={{ animationDelay: `${idx * 0.1}s` }}
+      >
+        <CardContent className="p-6">
+          {/* Team Header */}
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="text-3xl">🏢</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">{team.name}</h3>
+              <p className="text-sm text-muted-foreground">{team.bio || "No description"}</p>
+            </div>
           </div>
-        </div>
-        {/* Trust Score */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium">Trust Score</span>
-            <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
+          {/* Trust Score */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium">Trust Score</span>
+              <span className="text-sm font-bold text-primary">{team.trustScore !== null ? `${team.trustScore}/100` : "N/A"}</span>
+            </div>
+            <div className="w-full bg-secondary rounded-full h-2">
+              <div
+                className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
+                style={{ width: `${team.trustScore || 0}%` }}
+              ></div>
+            </div>
           </div>
-          <div className="w-full bg-secondary rounded-full h-2">
-            <div
-              className={`bg-gradient-to-r ${getTrustScoreColor(team.trustScore || 0)} h-2 rounded-full transition-all duration-500`}
-              style={{ width: `${team.trustScore || 0}%` }}
-            ></div>
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-4 mb-4 text-center">
+            <div>
+              <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
+              <div className="text-xs text-muted-foreground">Projects</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-primary">{team.membersCount}</div>
+              <div className="text-xs text-muted-foreground">Members</div>
+            </div>
           </div>
-        </div>
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-4 text-center">
-          <div>
-            <div className="text-lg font-bold text-primary">{team.projectsCount}</div>
-            <div className="text-xs text-muted-foreground">Projects</div>
-          </div>
-          <div>
-            <div className="text-lg font-bold text-primary">{team.membersCount}</div>
-            <div className="text-xs text-muted-foreground">Members</div>
-          </div>
-        </div>
-        {/* Join/Leave/Details Buttons */}
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.preventDefault();
-              handleScore(team.id);
-            }}
-          >
-            Score
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            asChild
-          >
-            <Link href={`/teams/${team.id}`}>Details</Link>
-          </Button>
-          {!team.isMember ? (
+          {/* Join/Leave/Details Buttons */}
+          <div className="flex justify-end gap-2">
             <Button
               size="sm"
-              variant="secondary"
-              disabled={joining === team.id}
+              variant="outline"
               onClick={(e) => {
-                e.preventDefault()
-                handleJoin(team.id)
+                e.preventDefault();
+                handleScore(team.id);
               }}
             >
-              {joining === team.id ? "Joining..." : "Join"}
+              Score
             </Button>
-          ) : (
-            <>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="default">Create Project</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create a New Project</DialogTitle>
-                    <DialogDescription>
-                      Add a new project to your team. Fill in the details below.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <CreateProjectForm teamId={team.id} redirectToProjects />
-                </DialogContent>
-              </Dialog>
+            <Button
+              size="sm"
+              variant="outline"
+              asChild
+            >
+              <Link href={`/teams/${team.id}`}>Details</Link>
+            </Button>
+            {!team.isMember ? (
               <Button
                 size="sm"
-                variant="destructive"
-                disabled={leaving === team.id}
+                variant="secondary"
+                disabled={joining === team.id}
                 onClick={(e) => {
                   e.preventDefault()
-                  setShowConfirm({ teamId: team.id })
+                  handleJoin(team.id)
                 }}
               >
-                {leaving === team.id ? "Leaving..." : "Leave"}
+                {joining === team.id ? "Joining..." : "Join"}
               </Button>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
+            ) : (
+              <>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="default">Create Project</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create a New Project</DialogTitle>
+                      <DialogDescription>
+                        Add a new project to your team. Fill in the details below.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <CreateProjectForm teamId={team.id} redirectToProjects />
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={leaving === team.id}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setShowConfirm({ teamId: team.id })
+                  }}
+                >
+                  {leaving === team.id ? "Leaving..." : "Leave"}
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      <Dialog open={scoreOpen} onOpenChange={setScoreOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>Team Score</DialogTitle>
+            <DialogDescription>
+              {teamScore ? (
+                <div className="space-y-2 mt-4">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Completion Rate</span>
+                    <span>{teamScore.completionRate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Timeliness</span>
+                    <span>{teamScore.timeliness}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Ambition Factor</span>
+                    <span>{teamScore.ambitionFactor}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">KPI Accuracy</span>
+                    <span>{teamScore.kpiAccuracy}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold border-t pt-2">
+                    <span>Total Score</span>
+                    <span>{teamScore.totalScore}</span>
+                  </div>
+                </div>
+              ) : (
+                <span>No score data available.</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 // Section component for rendering each team section

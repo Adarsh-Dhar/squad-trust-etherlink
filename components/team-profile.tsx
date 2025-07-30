@@ -1157,7 +1157,9 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowRolesProject(null)}>Close</Button>
+            <Button variant="secondary" onClick={() => {
+              setShowRolesProject(null)
+              }}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

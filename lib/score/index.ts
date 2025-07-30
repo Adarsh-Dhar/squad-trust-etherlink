@@ -1,6 +1,8 @@
 // SquadTrust Scoring System Implementation
 // Multi-dimensional reputation algorithm with time decay, milestone weighting, and anti-gaming mechanisms
 
+import { calculateKPIScore, MilestoneData as KPIMilestoneData, KPIScore } from '../credibility/kpi-scoring';
+
 export interface ScoreData {
   projectsShipped: number;
   onTimeRate: number; // Percentage (0-100)
@@ -29,6 +31,7 @@ export interface ProjectData {
   estimatedCost: number;
   actualCost?: number;
   projectType: ProjectType;
+  teamId: string; // Added for team scoring
 }
 
 export enum ProjectType {
@@ -564,6 +567,48 @@ export function voteToAbandon(projectId: string, voterAddress: string): void {
   }
 
   abandonedVotes[projectId] = (abandonedVotes[projectId] || 0) + 1;
+}
+
+/**
+ * Calculate the KPI-based team score for a given team
+ * @param teamId - The team ID
+ * @returns KPIScore object (completionRate, timeliness, ambitionFactor, kpiAccuracy, totalScore)
+ */
+export function calculateTeamScore(teamId: string): KPIScore {
+  // Gather all projects for the team
+  const projects = Object.values(projectRegistry).filter(p => (p as any).teamId === teamId);
+  if (projects.length === 0) {
+    return {
+      completionRate: 0,
+      timeliness: 0,
+      ambitionFactor: 0,
+      kpiAccuracy: 0,
+      totalScore: 0,
+    };
+  }
+
+  // Gather all milestones for all projects
+  const allMilestones: KPIMilestoneData[] = [];
+  for (const project of projects) {
+    const milestones = milestoneRegistry[project.id];
+    if (milestones) {
+      for (const [milestoneId, milestone] of Object.entries(milestones)) {
+        // Convert to KPI MilestoneData format
+        allMilestones.push({
+          id: milestoneId,
+          kpi: undefined, // If you have a KPI field, map it here
+          targetValue: undefined, // If you have target/achieved values, map here
+          achievedValue: undefined,
+          difficulty: undefined,
+          status: undefined,
+          dueDate: milestone.dueDate ? new Date(milestone.dueDate * 1000) : undefined,
+          completed: true, // You may want to infer this from confirmations or other logic
+        });
+      }
+    }
+  }
+
+  return calculateKPIScore(allMilestones);
 }
 
 // Utility functions
