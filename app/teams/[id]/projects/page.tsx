@@ -25,6 +25,11 @@ interface Team {
       walletAddress: string;
     };
   }[];
+  projects: {
+    id: string;
+    title: string;
+    blockchainProjectId: string;
+  }[];
 }
 
 export default function CreateProjectStandalonePage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,6 +57,100 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
       setId(resolvedParams.id);
     });
   }, [params]);
+
+  // Log all members for existing projects when page mounts
+  useEffect(() => {
+    async function logProjectMembers() {
+      if (!id) return;
+      
+      try {
+        // Fetch team data with projects
+        const response = await fetch(`/api/teams/${id}`);
+        if (!response.ok) {
+          console.error('Failed to fetch team data for member logging');
+          return;
+        }
+        
+        const teamData = await response.json();
+        console.log('Team data for member logging:', {
+          teamId: id,
+          teamName: teamData.name,
+          projects: teamData.projects?.length || 0
+        });
+
+        // Get signer for blockchain calls
+        const signer = await getSigner();
+        if (!signer) {
+          console.log('No signer available, skipping member role logging');
+          return;
+        }
+
+        const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+
+        // Log members for each project
+        if (teamData.projects && teamData.projects.length > 0) {
+          console.log('=== Logging Members for All Projects ===');
+          
+          for (const project of teamData.projects) {
+            if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) {
+              console.log(`Skipping project ${project.id} - invalid blockchainProjectId: ${project.blockchainProjectId}`);
+              continue;
+            }
+
+            console.log(`\n--- Project: ${project.title} (${project.id}) ---`);
+            console.log(`Blockchain Project ID: ${project.blockchainProjectId}`);
+
+            try {
+              // Get all project members from blockchain
+              const projectMembers = await squadTrustService.getProjectMembers(project.blockchainProjectId);
+              console.log(`Total members on blockchain: ${projectMembers.length}`);
+
+              // Log detailed role information for each member
+              for (const memberAddress of projectMembers) {
+                try {
+                  const memberRole = await squadTrustService.getMemberRole(project.blockchainProjectId, memberAddress);
+                  if (memberRole) {
+                    console.log(`Member ${memberAddress}:`, {
+                      role: memberRole.role,
+                      verified: memberRole.verified,
+                      stakeAmount: memberRole.stakeAmount,
+                      lastActivity: new Date(Number(memberRole.lastActivity) * 1000).toISOString(),
+                      isDisputed: memberRole.isDisputed
+                    });
+                  } else {
+                    console.log(`Member ${memberAddress}: No role found`);
+                  }
+                } catch (error: any) {
+                  if (error?.code === 'BAD_DATA' && error?.message?.includes('could not decode result data')) {
+                    console.log(`Member ${memberAddress}: No on-chain role (expected for non-claimed members)`);
+                  } else {
+                    console.error(`Error getting role for member ${memberAddress}:`, error);
+                  }
+                }
+              }
+
+              // Also log team members from database for comparison
+              console.log(`\nTeam members from database:`);
+              teamData.members.forEach((member: any) => {
+                console.log(`- ${member.user.walletAddress}: ${member.role} (${member.user.name || 'No name'})`);
+              });
+
+            } catch (error: any) {
+              console.error(`Error fetching members for project ${project.id}:`, error);
+            }
+          }
+          
+          console.log('=== End Member Logging ===\n');
+        } else {
+          console.log('No projects found in team for member logging');
+        }
+      } catch (error: any) {
+        console.error('Error in member logging:', error);
+      }
+    }
+
+    logProjectMembers();
+  }, [id]);
 
   // Check if user is admin of the team
   useEffect(() => {
