@@ -87,7 +87,7 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
       }
 
       // Claim role on blockchain using the actual blockchain project ID
-      await squadTrustService.claimRole(getBytes(blockchainProjectId), data.roleTitle, stakeAmount);
+      await squadTrustService.claimRole(getBytes(blockchainProjectId), data.roleTitle);
 
       // Also create the role in the database
       const res = await fetch(`/api/projects/${projectId}/roles`, {

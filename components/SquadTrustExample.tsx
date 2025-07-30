@@ -69,7 +69,9 @@ export function SquadTrustExample({ contractAddress, signer }: SquadTrustExample
 
   const handleCreateProject = async () => {
     try {
-      const newProjectId = await createProject(projectName, requiredConfirmations);
+      const budget = "1000"; // Default budget in ETH
+      const deadline = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days from now
+      const newProjectId = await createProject(projectName, requiredConfirmations, budget, deadline);
       setProjectId(newProjectId);
       setProjectName('');
       setRequiredConfirmations(2);
@@ -86,7 +88,7 @@ export function SquadTrustExample({ contractAddress, signer }: SquadTrustExample
     }
 
     try {
-      await claimRole(projectId, roleDescription, stakeAmount);
+      await claimRole(projectId, roleDescription);
       setRoleDescription('');
       setStakeAmount('0.01');
     } catch (err) {
@@ -130,7 +132,8 @@ export function SquadTrustExample({ contractAddress, signer }: SquadTrustExample
     }
 
     try {
-      await completeProject(projectId);
+      const actualCost = "950"; // Default actual cost in ETH
+      await completeProject(projectId, actualCost);
       setProjectId('');
       await loadInitialData(); // Refresh project list
     } catch (err) {

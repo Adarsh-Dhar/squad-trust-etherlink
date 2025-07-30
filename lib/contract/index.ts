@@ -1,4 +1,4 @@
-import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes, formatBytes32String } from 'ethers';
+import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes } from 'ethers';
 import { abi } from './abi';
 import { address as contractAddress } from './address';
 
@@ -9,21 +9,29 @@ export interface Project {
   name: string;
   creator: string;
   completed: boolean;
+  abandoned: boolean;
   createdAt: number;
   completedAt: number;
+  abandonedAt: number;
   memberCount: number;
+  budget: string;
+  actualCost: string;
+  deadline: number;
 }
 
 export interface MemberRole {
   role: string;
   verified: boolean;
   stakeAmount: string;
+  lastActivity: number;
+  isDisputed: boolean;
 }
 
 export interface Milestone {
   description: string;
   confirmed: boolean;
   confirmations: number;
+  deadline: number;
 }
 
 export interface ProjectRole {
@@ -31,14 +39,51 @@ export interface ProjectRole {
   role: string;
 }
 
+export interface Dispute {
+  disputer: string;
+  target: string;
+  reason: string;
+  createdAt: number;
+  resolved: boolean;
+  inFavorOfDisputer: boolean;
+  votesForDisputer: number;
+  votesForTarget: number;
+  voters: string[];
+}
+
+export interface MemberStats {
+  projectsShipped: number;
+  onTimeRateScore: number;
+  budgetAccuracyScore: number;
+  abandoned: number;
+  lastProject: number;
+}
+
+export interface PortableReputation {
+  score: number;
+  lastUpdated: number;
+  projectsShipped: number;
+  onTimeRate: number;
+  budgetAccuracy: number;
+  projectsAbandoned: number;
+  projectProofs: string[];
+}
+
 export interface SquadTrustContract {
   // Core Functions
-  createProject(name: string, requiredConfirmations: number): Promise<string>;
-  claimRole(projectId: string, role: string, stakeAmount: string): Promise<void>;
+  createProject(name: string, requiredConfirmations: number, budget: string, deadline: number): Promise<string>;
+  claimRole(projectId: string, role: string): Promise<void>;
   verifyRole(projectId: string, member: string): Promise<void>;
+  verifyRoleBySig(member: string, projectId: string, role: string, v: number, r: string, s: string): Promise<void>;
   confirmMilestone(projectId: string, milestoneId: number, description: string): Promise<void>;
-  completeProject(projectId: string): Promise<void>;
+  completeProject(projectId: string, actualCost: string): Promise<void>;
+  abandonProject(projectId: string): Promise<void>;
   withdrawStake(projectId: string): Promise<void>;
+  
+  // Dispute Resolution
+  createDispute(projectId: string, target: string, reason: string): Promise<void>;
+  voteOnDispute(disputeId: string, voteForDisputer: boolean): Promise<void>;
+  slashStake(projectId: string, member: string): Promise<void>;
   
   // View Functions
   getProject(projectId: string): Promise<Project>;
@@ -49,10 +94,18 @@ export interface SquadTrustContract {
   getMilestone(projectId: string, milestoneId: number): Promise<Milestone>;
   getAllProjects(): Promise<string[]>;
   getProjectRoles(projectId: string): Promise<ProjectRole[]>;
+  getDispute(disputeId: string): Promise<Dispute>;
+  getMemberStats(member: string): Promise<MemberStats>;
+  getPortableReputation(member: string): Promise<PortableReputation>;
   
   // Constants
   MIN_STAKE(): Promise<string>;
+  REPUTATION_THRESHOLD(): Promise<number>;
+  DISPUTER_REWARD_PERCENTAGE(): Promise<number>;
+  SLASH_PERCENTAGE(): Promise<number>;
+  TIME_DECAY_PERIOD(): Promise<number>;
   projectCount(): Promise<number>;
+  disputeCount(): Promise<number>;
 }
 
 export class SquadTrustService {
@@ -70,11 +123,13 @@ export class SquadTrustService {
    * Create a new project
    * @param name Project name
    * @param requiredConfirmations Number of confirmations needed for milestones
+   * @param budget Project budget in ETH (e.g., "1000")
+   * @param deadline Project deadline as Unix timestamp
    * @returns Project ID
    */
-  async createProject(name: string, requiredConfirmations: number): Promise<string> {
+  async createProject(name: string, requiredConfirmations: number, budget: string, deadline: number): Promise<string> {
     try {
-      console.log("Creating project:", name, requiredConfirmations);
+      console.log("Creating project:", name, requiredConfirmations, budget, deadline);
       
       // First, verify the contract is deployed
       try {
@@ -87,8 +142,10 @@ export class SquadTrustService {
         console.error("Error checking contract deployment:", e);
       }
       
+      const budgetWei = parseEther(budget);
+      
       // Create project on blockchain - the function returns the projectId directly
-      const tx = await this.contract.createProject(name, requiredConfirmations);
+      const tx = await this.contract.createProject(name, requiredConfirmations, budgetWei, deadline);
       console.log("Transaction sent:", tx.hash);
       const receipt = await tx.wait();
       console.log("Transaction receipt:", receipt);
@@ -128,12 +185,12 @@ export class SquadTrustService {
    * Claim a role in a project with stake
    * @param projectId The project identifier
    * @param role Role description
-   * @param stakeAmount Stake amount in ETH (e.g., "0.01")
    */
-  async claimRole(projectId: string, role: string, stakeAmount: string): Promise<void> {
+  async claimRole(projectId: string, role: string): Promise<void> {
     try {
-      const value = parseEther(stakeAmount);
-      const tx = await this.contract.claimRole(projectId, role, { value });
+      // Get minimum stake amount
+      const minStake = await this.contract.MIN_STAKE();
+      const tx = await this.contract.claimRole(projectId, role, { value: minStake });
       await tx.wait();
     } catch (error) {
       console.error('Error claiming role:', error);
@@ -163,6 +220,25 @@ export class SquadTrustService {
   }
 
   /**
+   * Verify role using signature
+   * @param member Member address
+   * @param projectId The project identifier
+   * @param role Role description
+   * @param v Signature v component
+   * @param r Signature r component
+   * @param s Signature s component
+   */
+  async verifyRoleBySig(member: string, projectId: string, role: string, v: number, r: string, s: string): Promise<void> {
+    try {
+      const tx = await this.contract.verifyRoleBySig(member, projectId, role, v, r, s);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error verifying role by signature:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Confirm project milestone completion
    * @param projectId The project identifier
    * @param milestoneId Milestone identifier
@@ -181,13 +257,29 @@ export class SquadTrustService {
   /**
    * Complete project and update credibility scores
    * @param projectId The project identifier
+   * @param actualCost Actual cost of the project in ETH (e.g., "950")
    */
-  async completeProject(projectId: string): Promise<void> {
+  async completeProject(projectId: string, actualCost: string): Promise<void> {
     try {
-      const tx = await this.contract.completeProject(projectId);
+      const actualCostWei = parseEther(actualCost);
+      const tx = await this.contract.completeProject(projectId, actualCostWei);
       await tx.wait();
     } catch (error) {
       console.error('Error completing project:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Abandon project
+   * @param projectId The project identifier
+   */
+  async abandonProject(projectId: string): Promise<void> {
+    try {
+      const tx = await this.contract.abandonProject(projectId);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error abandoning project:', error);
       throw error;
     }
   }
@@ -206,6 +298,54 @@ export class SquadTrustService {
     }
   }
 
+  // ============ DISPUTE RESOLUTION ============
+
+  /**
+   * Create a dispute against a member
+   * @param projectId The project identifier
+   * @param target Target member address
+   * @param reason Dispute reason
+   */
+  async createDispute(projectId: string, target: string, reason: string): Promise<void> {
+    try {
+      const tx = await this.contract.createDispute(projectId, target, reason);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error creating dispute:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Vote on a dispute
+   * @param disputeId Dispute identifier
+   * @param voteForDisputer Whether to vote for the disputer
+   */
+  async voteOnDispute(disputeId: string, voteForDisputer: boolean): Promise<void> {
+    try {
+      const tx = await this.contract.voteOnDispute(disputeId, voteForDisputer);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error voting on dispute:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Slash stake of a member
+   * @param projectId The project identifier
+   * @param member Member address
+   */
+  async slashStake(projectId: string, member: string): Promise<void> {
+    try {
+      const tx = await this.contract.slashStake(projectId, member);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error slashing stake:', error);
+      throw error;
+    }
+  }
+
   // ============ VIEW FUNCTIONS ============
 
   /**
@@ -220,9 +360,14 @@ export class SquadTrustService {
         name: result[0],
         creator: result[1],
         completed: result[2],
-        createdAt: Number(result[3]),
-        completedAt: Number(result[4]),
-        memberCount: Number(result[5])
+        abandoned: result[3],
+        createdAt: Number(result[4]),
+        completedAt: Number(result[5]),
+        abandonedAt: Number(result[6]),
+        memberCount: Number(result[7]),
+        budget: formatEther(result[8]),
+        actualCost: formatEther(result[9]),
+        deadline: Number(result[10])
       };
     } catch (error) {
       console.error('Error getting project:', error);
@@ -242,7 +387,9 @@ export class SquadTrustService {
       return {
         role: result[0],
         verified: result[1],
-        stakeAmount: formatEther(result[2])
+        stakeAmount: formatEther(result[2]),
+        lastActivity: Number(result[3]),
+        isDisputed: result[4]
       };
     } catch (error: any) {
       if (
@@ -312,7 +459,8 @@ export class SquadTrustService {
       return {
         description: result[0],
         confirmed: result[1],
-        confirmations: Number(result[2])
+        confirmations: Number(result[2]),
+        deadline: Number(result[3])
       };
     } catch (error) {
       console.error('Error getting milestone:', error);
@@ -356,6 +504,75 @@ export class SquadTrustService {
   }
 
   /**
+   * Get dispute details
+   * @param disputeId Dispute identifier
+   * @returns Dispute details
+   */
+  async getDispute(disputeId: string): Promise<Dispute> {
+    try {
+      const result = await this.contract.getDispute(disputeId);
+      return {
+        disputer: result[0],
+        target: result[1],
+        reason: result[2],
+        createdAt: Number(result[3]),
+        resolved: result[4],
+        inFavorOfDisputer: result[5],
+        votesForDisputer: Number(result[6]),
+        votesForTarget: Number(result[7]),
+        voters: result[8]
+      };
+    } catch (error) {
+      console.error('Error getting dispute:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get member statistics
+   * @param member Member address
+   * @returns Member statistics
+   */
+  async getMemberStats(member: string): Promise<MemberStats> {
+    try {
+      const result = await this.contract.getMemberStats(member);
+      return {
+        projectsShipped: Number(result[0]),
+        onTimeRateScore: Number(result[1]),
+        budgetAccuracyScore: Number(result[2]),
+        abandoned: Number(result[3]),
+        lastProject: Number(result[4])
+      };
+    } catch (error) {
+      console.error('Error getting member stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get portable reputation
+   * @param member Member address
+   * @returns Portable reputation data
+   */
+  async getPortableReputation(member: string): Promise<PortableReputation> {
+    try {
+      const result = await this.contract.getPortableReputation(member);
+      return {
+        score: Number(result[0]),
+        lastUpdated: Number(result[1]),
+        projectsShipped: Number(result[2]),
+        onTimeRate: Number(result[3]),
+        budgetAccuracy: Number(result[4]),
+        projectsAbandoned: Number(result[5]),
+        projectProofs: result[6]
+      };
+    } catch (error) {
+      console.error('Error getting portable reputation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get minimum stake amount
    * @returns Minimum stake in ETH
    */
@@ -370,6 +587,62 @@ export class SquadTrustService {
   }
 
   /**
+   * Get reputation threshold
+   * @returns Reputation threshold
+   */
+  async getReputationThreshold(): Promise<number> {
+    try {
+      const threshold = await this.contract.REPUTATION_THRESHOLD();
+      return Number(threshold);
+    } catch (error) {
+      console.error('Error getting reputation threshold:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get disputer reward percentage
+   * @returns Disputer reward percentage
+   */
+  async getDisputerRewardPercentage(): Promise<number> {
+    try {
+      const percentage = await this.contract.DISPUTER_REWARD_PERCENTAGE();
+      return Number(percentage);
+    } catch (error) {
+      console.error('Error getting disputer reward percentage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get slash percentage
+   * @returns Slash percentage
+   */
+  async getSlashPercentage(): Promise<number> {
+    try {
+      const percentage = await this.contract.SLASH_PERCENTAGE();
+      return Number(percentage);
+    } catch (error) {
+      console.error('Error getting slash percentage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get time decay period
+   * @returns Time decay period
+   */
+  async getTimeDecayPeriod(): Promise<number> {
+    try {
+      const period = await this.contract.TIME_DECAY_PERIOD();
+      return Number(period);
+    } catch (error) {
+      console.error('Error getting time decay period:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get total project count
    * @returns Total number of projects
    */
@@ -379,6 +652,20 @@ export class SquadTrustService {
       return Number(count);
     } catch (error) {
       console.error('Error getting project count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get total dispute count
+   * @returns Total number of disputes
+   */
+  async getDisputeCount(): Promise<number> {
+    try {
+      const count = await this.contract.disputeCount();
+      return Number(count);
+    } catch (error) {
+      console.error('Error getting dispute count:', error);
       throw error;
     }
   }

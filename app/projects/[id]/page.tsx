@@ -340,7 +340,8 @@ export default function ProjectDetailsPage() {
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      await squadTrustService.completeProject(project.blockchainProjectId);
+      const actualCost = "950"; // Default actual cost in ETH
+      await squadTrustService.completeProject(project.blockchainProjectId, actualCost);
       // 2. Update DB
       const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
       const data = await res.json();

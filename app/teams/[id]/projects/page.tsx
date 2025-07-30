@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { use } from "react";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
 
 interface Team {
@@ -29,7 +28,7 @@ interface Team {
 }
 
 export default function CreateProjectStandalonePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+  const [id, setId] = useState<string>('');
   const [teams, setTeams] = useState<Team[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -46,6 +45,13 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
 
   // Contract address - should match the one in the API
   const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+
+  // Handle params
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setId(resolvedParams.id);
+    });
+  }, [params]);
 
   // Check if user is admin of the team
   useEffect(() => {
@@ -134,7 +140,9 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
       
       // Create project on blockchain
       const requiredConfirmations = 2; // Default value
-      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations);
+      const budget = "1000"; // Default budget in ETH
+      const deadline = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days from now
+      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations, budget, deadline);
       
       // console.log("Blockchain project created with ID:", blockchainProjectId);
       setBlockchainProjectId(blockchainProjectId);

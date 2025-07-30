@@ -260,50 +260,60 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   // Check if current user is a member of this team
   const isCurrentUserMember = () => {
     if (!address || !team) {
-      // console.log('Member check failed - missing address or team:', { address, team: !!team });
+      console.log('Member check failed - missing address or team:', { address, team: !!team });
       return false;
     }
     
     // Normalize the current user's address
     const normalizedUserAddress = address.toLowerCase();
     
-    // console.log('=== DETAILED MEMBER CHECK ===');
-    // console.log('Current user address:', address);
-    // console.log('Normalized user address:', normalizedUserAddress);
-    // console.log('Team ID:', team.id);
-    // console.log('Team name:', team.name);
-    // console.log('Total members:', team.members.length);
+    console.log('=== DETAILED MEMBER CHECK ===');
+    console.log('Current user address:', address);
+    console.log('Normalized user address:', normalizedUserAddress);
+    console.log('Team ID:', team.id);
+    console.log('Team name:', team.name);
+    console.log('Total members:', team.members.length);
     
     // Check if user is in the team members list
     const isMember = team.members.some((member, index) => {
       const normalizedMemberAddress = member.user.walletAddress.toLowerCase();
       const matches = normalizedMemberAddress === normalizedUserAddress;
       
-      // console.log(`Member ${index + 1}:`);
-      // console.log(`  - Wallet: ${member.user.walletAddress}`);
-      // console.log(`  - Normalized: ${normalizedMemberAddress}`);
-      // console.log(`  - Name: ${member.user.name}`);
-      // console.log(`  - Role: ${member.role}`);
-      // console.log(`  - Matches current user: ${matches}`);
+      console.log(`Member ${index + 1}:`);
+      console.log(`  - Wallet: ${member.user.walletAddress}`);
+      console.log(`  - Normalized: ${normalizedMemberAddress}`);
+      console.log(`  - Name: ${member.user.name}`);
+      console.log(`  - Role: ${member.role}`);
+      console.log(`  - Matches current user: ${matches}`);
       
       return matches;
     });
     
-    // console.log('=== FINAL RESULT ===');
-    // console.log('Is member:', isMember);
-    // console.log('========================');
+    console.log('=== FINAL RESULT ===');
+    console.log('Is member:', isMember);
+    console.log('========================');
     
     return isMember;
   };
 
   // Get current user's role in the team
   const getCurrentUserRole = () => {
-    if (!address || !team) return null;
+    if (!address || !team) {
+      console.log('Role check failed - missing address or team:', { address, team: !!team });
+      return null;
+    }
     
     const normalizedUserAddress = address.toLowerCase();
     const member = team.members.find(member => {
       const normalizedMemberAddress = member.user.walletAddress.toLowerCase();
       return normalizedMemberAddress === normalizedUserAddress;
+    });
+    
+    console.log('Role check result:', { 
+      address, 
+      normalizedAddress: normalizedUserAddress,
+      foundMember: member ? { name: member.user.name, role: member.role } : null,
+      totalMembers: team.members.length
     });
     
     return member?.role || null;
@@ -486,7 +496,8 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      await squadTrustService.completeProject(project.blockchainProjectId);
+      const actualCost = "950"; // Default actual cost in ETH
+      await squadTrustService.completeProject(project.blockchainProjectId, actualCost);
       // Update DB
       const res = await fetch(`/api/projects/${project.id}/complete`, { method: "PATCH" });
       const data = await res.json();
@@ -586,16 +597,17 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   const userRole = getCurrentUserRole();
 
   // Debug logging
-  // console.log('Team Profile Debug:', {
-  //   address,
-  //   isConnected: !!address,
-  //   teamMembers: team.members.map(m => ({ 
-  //     walletAddress: m.user.walletAddress, 
-  //     role: m.role 
-  //   })),
-  //   isMember,
-  //   userRole
-  // });
+  console.log('Team Profile Debug:', {
+    address,
+    isConnected: !!address,
+    teamMembers: team.members.map(m => ({ 
+      walletAddress: m.user.walletAddress, 
+      role: m.role 
+    })),
+    isMember,
+    userRole,
+    shouldShowCreateButton: isMember && userRole === 'ADMIN'
+  });
 
   // Show wallet connection prompt if not connected
   if (!address) {
@@ -748,14 +760,68 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         <TabsContent value="projects" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold">Projects</h2>
-            {isMember && userRole === 'ADMIN' && (
+            <div className="flex gap-2">
+              {/* Debug button - always visible */}
               <Button 
-                variant="default" 
-                onClick={() => router.push(`/teams/${teamId}/projects`)}
+                variant="outline" 
+                onClick={() => {
+                  console.log('Debug button clicked');
+                  console.log('Debug state:', { isMember, userRole, teamId, address });
+                }}
+                className="bg-yellow-500 hover:bg-yellow-600 text-black"
               >
-                Create Project
+                🐛 Debug
               </Button>
-            )}
+              
+              {/* Test navigation button */}
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  console.log('Test navigation button clicked');
+                  router.push('/teams');
+                }}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                🧪 Test Nav
+              </Button>
+              
+              {/* Original Create Project button */}
+              {(() => {
+                console.log('Rendering Create Project button check:', { isMember, userRole, teamId });
+                // Temporarily always show the button for testing
+                return (
+                  <div style={{ border: '2px solid red', padding: '10px', margin: '10px' }}>
+                    <div style={{ color: 'red', fontSize: '12px', marginBottom: '5px' }}>
+                      DEBUG: Button should be visible
+                    </div>
+                    <Button 
+                      variant="default" 
+                      onClick={() => {
+                        console.log('Create Project button clicked');
+                        console.log('Current state:', { isMember, userRole, teamId });
+                        console.log('About to navigate to:', `/teams/${teamId}/projects`);
+                        alert('Button clicked! Navigating to projects page...');
+                        try {
+                          router.push(`/teams/${teamId}/projects`);
+                          console.log('Navigation initiated successfully');
+                        } catch (error) {
+                          console.error('Navigation failed:', error);
+                        }
+                      }}
+                      className="bg-red-500 hover:bg-red-600 text-white font-bold"
+                      style={{ 
+                        position: 'relative', 
+                        zIndex: 1000, 
+                        cursor: 'pointer',
+                        pointerEvents: 'auto'
+                      }}
+                    >
+                      🔥 Create Project 🔥
+                    </Button>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
           <div className="grid gap-6">
             {team.projects.length === 0 ? (
