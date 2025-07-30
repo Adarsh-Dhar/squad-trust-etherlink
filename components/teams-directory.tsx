@@ -381,6 +381,44 @@ function renderTeamCard(team: any, index: number, {
   handleJoin: (teamId: string) => void,
   setShowConfirm: (val: { teamId: string | null }) => void
 }) {
+  const handleScore = async (teamId: string) => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/members/score`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.memberScores.length === 0) {
+          alert('No members found in this team.');
+          return;
+        }
+
+        // Create a detailed score report
+        const scoreReport = result.memberScores.map((member: any) => 
+          `${member.userName}: ${member.score} points`
+        ).join('\n');
+        
+        const message = `Team Score Report:\n\n` +
+          `Average Score: ${result.averageScore} points\n` +
+          `Total Members: ${result.totalMembers}\n\n` +
+          `Individual Scores:\n${scoreReport}`;
+        
+        alert(message);
+      } else {
+        const error = await response.json();
+        alert(`Error calculating scores: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error calculating scores:', error);
+      alert('Failed to calculate scores');
+    }
+  };
+
   return (
     <Card
       key={team.id}
@@ -422,6 +460,16 @@ function renderTeamCard(team: any, index: number, {
         </div>
         {/* Join/Leave/Details Buttons */}
         <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.preventDefault();
+              handleScore(team.id);
+            }}
+          >
+            Score
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -477,7 +525,7 @@ function renderTeamCard(team: any, index: number, {
 }
 
 // Section component for rendering each team section
-function Section({ title, teams, renderTeam, emptyMsg }: { title: string, teams: any[], renderTeam: (team: any, index: number) => JSX.Element, emptyMsg: string }) {
+function Section({ title, teams, renderTeam, emptyMsg }: { title: string, teams: any[], renderTeam: (team: any, index: number) => React.ReactElement, emptyMsg: string }) {
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-bold mb-4 text-left">{title}</h2>
