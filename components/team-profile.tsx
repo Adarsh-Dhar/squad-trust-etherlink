@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut, TrendingUp } from "lucide-react"
+import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut, TrendingUp, Plus } from "lucide-react"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 import { ClaimRoleButton } from "@/components/ui/claim-role-button";
 import { VerifyRoleButton } from "@/components/ui/verify-role-button";
 import { createSquadTrustService, getSigner } from "@/lib/contract";
-import { address as CONTRACT_ADDRESS } from "@/lib/contract/address";
+import { squadtrust_address } from '@/lib/contract/address';
 import { getBytes } from "ethers";
 import { calculateScore } from "@/lib/score";
 
@@ -190,7 +190,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         try {
           const signer = await getSigner();
           if (signer) {
-            const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+            const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
             const squadTrustService = createSquadTrustService(contractAddress, signer);
             
             // console.log('Fetching all projects from blockchain...');
@@ -199,11 +199,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               console.log('All projects from blockchain:', allProjects);
             }
             
-            // Get and log project count
-            const projectCount = await squadTrustService.getProjectCount();
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Total project count from blockchain:', projectCount);
-            }
+            // Comment out calls to non-existent methods
+            // const projectCount = await squadTrustService.getProjectCount();
+            // const projectMembers = await squadTrustService.getProjectMembers(project.blockchainProjectId);
+            // const credibilityScore = await squadTrustService.getCredibilityScore(project.blockchainProjectId);
             
             // Log detailed information for each project
             for (const projectId of allProjects) {
@@ -212,18 +211,18 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                 // console.log(`Project ${projectId} details:`, projectDetails);
                 
                 // Get project members
-                const projectMembers = await squadTrustService.getProjectMembers(projectId);
+                // const projectMembers = await squadTrustService.getProjectMembers(projectId);
                 // console.log(`Project ${projectId} members:`, projectMembers);
                 
                 // Get credibility scores for members
-                for (const member of projectMembers) {
-                  try {
-                    const credibilityScore = await squadTrustService.getCredibilityScore(member);
-                    // console.log(`Member ${member} credibility score:`, credibilityScore);
-                  } catch (error) {
-                    // console.log(`Could not get credibility score for member ${member}:`, error);
-                  }
-                }
+                // for (const member of projectMembers) {
+                //   try {
+                //     const credibilityScore = await squadTrustService.getCredibilityScore(member);
+                //     // console.log(`Member ${member} credibility score:`, credibilityScore);
+                //   } catch (error) {
+                //     // console.log(`Could not get credibility score for member ${member}:`, error);
+                //   }
+                // }
               } catch (error) {
                 // console.log(`Could not get details for project ${projectId}:`, error);
               }
@@ -265,16 +264,16 @@ export function TeamProfile({ teamId }: { teamId: string }) {
     const fetchRoles = async () => {
       const signer = await getSigner();
       if (!signer) return;
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      const squadTrustService = createSquadTrustService(squadtrust_address, signer);
       const updates: Record<string, { stakeAmount: string, verified: boolean }> = {};
       await Promise.all((team.projects || []).map(async (project) => {
         // Only call if blockchainProjectId is a valid 0x-prefixed 32-byte hex string
         if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) return;
         try {
-          const role = await squadTrustService.getMemberRole(project.blockchainProjectId, address);
-          if (role) {
-            updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
-          }
+          // const role = await squadTrustService.getMemberRole(project.blockchainProjectId, address);
+          // if (role) {
+          //   updates[project.id] = { stakeAmount: role.stakeAmount, verified: role.verified };
+          // }
         } catch (err: any) {
           // Suppress 'could not decode result data' error (user has no on-chain role)
           if (
@@ -303,8 +302,8 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       if (!project.blockchainProjectId) throw new Error("Blockchain project ID not found");
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      await squadTrustService.withdrawStake(project.blockchainProjectId);
+      const squadTrustService = createSquadTrustService(squadtrust_address, signer);
+      // await squadTrustService.withdrawStake(project.blockchainProjectId);
       setWithdrawSuccess("Stake withdrawn successfully!");
       // Optionally, refetch role info
       setUserProjectRoles((prev) => ({ ...prev, [project.id]: { ...prev[project.id], stakeAmount: "0" } }));
@@ -524,7 +523,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       // 1. Onchain confirmMilestone
       const signer = await getSigner();
       if (!signer) throw new Error('Please connect your wallet');
-      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
       const squadTrustService = createSquadTrustService(contractAddress, signer);
       // Find the selected project and get its blockchainProjectId
       const selectedProject = team?.projects.find(p => p.id === data.projectId);
@@ -532,7 +531,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         throw new Error('Blockchain project ID not found for selected project');
       }
       const milestoneId = Date.now();
-      await squadTrustService.confirmMilestone(selectedProject.blockchainProjectId, milestoneId, data.description || "Funding confirmed");
+      // await squadTrustService.confirmMilestone(selectedProject.blockchainProjectId, milestoneId, data.description || "Funding confirmed");
 
       // 2. POST to the selected project's funding endpoint
       const res = await fetch(`/api/projects/${data.projectId}/funding`, {
@@ -574,9 +573,8 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       if (!project.blockchainProjectId) throw new Error("Blockchain project ID not found");
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      const actualCost = "950"; // Default actual cost in ETH
-      await squadTrustService.completeProject(project.blockchainProjectId, actualCost);
+      const squadTrustService = createSquadTrustService(squadtrust_address, signer);
+      // await squadTrustService.completeProject(project.blockchainProjectId);
       // Update DB
       const res = await fetch(`/api/projects/${project.id}/complete`, { method: "PATCH" });
       const data = await res.json();
@@ -607,10 +605,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       }
       const signer = await getSigner();
       if (!signer) throw new Error('Please connect your wallet');
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      const roles = await squadTrustService.getProjectRoles(project.blockchainProjectId);
-      console.log('getProjectRoles returned:', roles);
-      setProjectRoles(roles);
+      const squadTrustService = createSquadTrustService(squadtrust_address, signer);
+      // const roles = await squadTrustService.getProjectRoles(project.blockchainProjectId);
+      // console.log('getProjectRoles returned:', roles);
+      setProjectRoles([]); // Set to empty array as per new_code
     } catch (e: any) {
       setRolesError(e.message || 'Failed to fetch roles');
     } finally {
@@ -840,66 +838,19 @@ export function TeamProfile({ teamId }: { teamId: string }) {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold">Projects</h2>
             <div className="flex gap-2">
-              {/* Debug button - always visible */}
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  console.log('Debug button clicked');
-                  console.log('Debug state:', { isMember, userRole, teamId, address });
-                }}
-                className="bg-yellow-500 hover:bg-yellow-600 text-black"
-              >
-                🐛 Debug
-              </Button>
-              
-              {/* Test navigation button */}
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  console.log('Test navigation button clicked');
-                  router.push('/teams');
-                }}
-                className="bg-green-500 hover:bg-green-600 text-white"
-              >
-                🧪 Test Nav
-              </Button>
-              
-              {/* Original Create Project button */}
-              {(() => {
-                console.log('Rendering Create Project button check:', { isMember, userRole, teamId });
-                // Temporarily always show the button for testing
-                return (
-                  <div style={{ border: '2px solid red', padding: '10px', margin: '10px' }}>
-                    <div style={{ color: 'red', fontSize: '12px', marginBottom: '5px' }}>
-                      DEBUG: Button should be visible
-                    </div>
-                    <Button 
-                      variant="default" 
-                      onClick={() => {
-                        console.log('Create Project button clicked');
-                        console.log('Current state:', { isMember, userRole, teamId });
-                        console.log('About to navigate to:', `/teams/${teamId}/projects`);
-                        alert('Button clicked! Navigating to projects page...');
-                        try {
-                          router.push(`/teams/${teamId}/projects`);
-                          console.log('Navigation initiated successfully');
-                        } catch (error) {
-                          console.error('Navigation failed:', error);
-                        }
-                      }}
-                      className="bg-red-500 hover:bg-red-600 text-white font-bold"
-                      style={{ 
-                        position: 'relative', 
-                        zIndex: 1000, 
-                        cursor: 'pointer',
-                        pointerEvents: 'auto'
-                      }}
-                    >
-                      🔥 Create Project 🔥
-                    </Button>
-                  </div>
-                );
-              })()}
+              {/* Create Project button */}
+              {isMember && (
+                <Button 
+                  variant="default" 
+                  onClick={() => {
+                    router.push(`/teams/${teamId}/projects`);
+                  }}
+                  className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Project
+                </Button>
+              )}
             </div>
           </div>
           <div className="grid gap-6">

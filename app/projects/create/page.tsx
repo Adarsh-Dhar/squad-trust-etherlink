@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Plus, GitBranch, Globe, AlertCircle, Wallet } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
+import { getSigner, createSquadTrustService } from '@/lib/contract';
+import { squadtrust_address } from '@/lib/contract/address';
 
 interface CreateProjectForm {
   title: string;
   description: string;
   githubRepo: string;
   liveUrl: string;
+  minTeamStake: string;
 }
 
 export default function CreateProjectPage() {
@@ -21,9 +24,11 @@ export default function CreateProjectPage() {
     description: '',
     githubRepo: '',
     liveUrl: '',
+    minTeamStake: '0.1',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ projectId: string; txHash: string; onchainProjectId: string } | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -45,6 +50,7 @@ export default function CreateProjectPage() {
     setError(null);
 
     try {
+      // Step 1: Create project in database
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
@@ -59,7 +65,83 @@ export default function CreateProjectPage() {
       }
 
       const project = await response.json();
-      router.push(`/projects/${project.id}`);
+      
+      // Step 2: Create project onchain using user's wallet
+      if (project.needsOnchainCreation) {
+        try {
+          console.log('Starting onchain creation...');
+          console.log('Wallet connected:', isConnected);
+          console.log('Wallet address:', connectedWallet);
+          
+          const signer = await getSigner();
+          if (!signer) {
+            throw new Error('Failed to get wallet signer');
+          }
+          
+          console.log('Signer obtained successfully');
+          
+          const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
+          console.log('Using contract address:', contractAddress);
+          
+          const squadTrustService = createSquadTrustService(contractAddress, signer);
+          
+          console.log('Creating project onchain:', { title: formData.title, minTeamStake: formData.minTeamStake });
+          
+          // Create project onchain
+          const result = await squadTrustService.createProject(formData.title, formData.minTeamStake);
+          
+          console.log('Project created onchain successfully:');
+          console.log('- Project ID:', result.projectId);
+          console.log('- Transaction Hash:', result.txHash);
+          
+          // Step 3: Update database with onchain data
+          const updateResponse = await fetch(`/api/projects/${project.id}/onchain`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              projectId: result.projectId,
+              txHash: result.txHash,
+            }),
+          });
+
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            throw new Error(errorData.error || 'Failed to update project with onchain data');
+          }
+
+          const updatedProject = await updateResponse.json();
+          
+          // Show success message with transaction hash
+          setSuccess({
+            projectId: updatedProject.id,
+            txHash: result.txHash,
+            onchainProjectId: result.projectId
+          });
+          
+          // Redirect after a short delay to show the success message
+          setTimeout(() => {
+            router.push(`/projects/${updatedProject.id}`);
+          }, 3000);
+          
+        } catch (onchainError) {
+          console.error('Error creating project onchain:', onchainError);
+          console.error('Error details:', {
+            message: onchainError instanceof Error ? onchainError.message : 'Unknown error',
+            stack: onchainError instanceof Error ? onchainError.stack : undefined,
+            name: onchainError instanceof Error ? onchainError.name : undefined
+          });
+          setError(`Project created in database but failed to create onchain: ${onchainError instanceof Error ? onchainError.message : 'Unknown error'}`);
+          // Still redirect to the project page since it was created in the database
+          setTimeout(() => {
+            router.push(`/projects/${project.id}`);
+          }, 3000);
+        }
+      } else {
+        // If no onchain creation needed, just redirect
+        router.push(`/projects/${project.id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -146,6 +228,20 @@ export default function CreateProjectPage() {
               </div>
             )}
 
+            {success && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                <div className="w-5 h-5 text-green-500 mt-0.5">✓</div>
+                <div>
+                  <h3 className="text-sm font-medium text-green-800">Project Created Successfully!</h3>
+                  <div className="text-sm text-green-600 mt-2 space-y-1">
+                    <p><strong>Transaction Hash:</strong> <span className="font-mono text-xs">{success.txHash}</span></p>
+                    <p><strong>Onchain Project ID:</strong> <span className="font-mono text-xs">{success.onchainProjectId}</span></p>
+                    <p className="text-xs mt-2">Redirecting to project page...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Project Title */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -216,6 +312,28 @@ export default function CreateProjectPage() {
                 />
                 <Globe className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               </div>
+            </div>
+
+            {/* Minimum Team Stake */}
+            <div>
+              <label htmlFor="minTeamStake" className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum Team Stake (ETH) *
+              </label>
+              <input
+                type="number"
+                id="minTeamStake"
+                name="minTeamStake"
+                value={formData.minTeamStake}
+                onChange={handleInputChange}
+                required
+                min="0.01"
+                step="0.01"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="0.1"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Minimum amount teams must stake to apply for this project
+              </p>
             </div>
 
             {/* Submit Button */}

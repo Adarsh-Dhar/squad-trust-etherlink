@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ethers } from 'ethers';
 import { createSquadTrustService } from '@/lib/contract';
+import { squadtrust_address } from '@/lib/contract/address';
 
 // Contract address - should be moved to environment variables
-const CONTRACT_ADDRESS = process.env.SQUADTRUST_CONTRACT_ADDRESS || "0x0B306BF915C4d645ff596e518fAf3F9669b97016";
+const CONTRACT_ADDRESS = process.env.SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {

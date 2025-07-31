@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createSquadTrustService } from '@/lib/contract';
+import { ethers } from 'ethers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, githubRepo, liveUrl } = body;
+    const { title, description, githubRepo, liveUrl, minTeamStake = "0.1" } = body;
 
     // Validate required fields
     if (!title || !description) {
@@ -93,16 +95,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create the project
+    // Create the project in database first (without onchain data)
     const project = await prisma.project.create({
       data: {
-        name: title, // Use 'name' instead of 'title' to match the schema
+        name: title,
         description,
         githubRepo: githubRepo || null,
         liveUrl: liveUrl || null,
-        status: 'HIRING', // Use correct enum value
+        status: 'HIRING',
         creator: session.user.walletAddress.toLowerCase(),
         teamId: placeholderTeam.id,
+        // contractProjectId will be updated after onchain creation
       },
       include: {
         team: {
@@ -120,7 +123,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(project, { status: 201 });
+    return NextResponse.json({
+      ...project,
+      message: 'Project created in database. Please complete onchain creation.',
+      needsOnchainCreation: true
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });

@@ -67,6 +67,8 @@ model Project {
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   blockchainProjectId         String?
+  contractAddress             String?
+  contractProjectId           String?
   actualCost                  Float?
   completedAt                 DateTime?
   estimatedCost               Float?

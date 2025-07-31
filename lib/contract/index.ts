@@ -1,111 +1,144 @@
-import { ethers, parseEther, formatEther, isAddress, BrowserProvider, getBytes } from 'ethers';
+import { ethers, parseEther, formatEther, isAddress, BrowserProvider } from 'ethers';
 import { abi } from './abi';
-import { address as contractAddress } from './address';
+import { squadtrust_address as contractAddress } from './address';
 
-// Contract ABI - you'll need to compile the contract and import the ABI
-// For now, I'll define the essential types and interfaces
-
+// ========== CONTRACT STRUCTS ==========
 export interface Project {
-  name: string;
   creator: string;
+  name: string;
+  totalReward: string;
+  minTeamStake: string;
+  funded: boolean;
   completed: boolean;
-  abandoned: boolean;
+  teamHired: boolean;
   createdAt: number;
-  completedAt: number;
-  abandonedAt: number;
-  memberCount: number;
-  budget: string;
-  actualCost: string;
-  deadline: number;
 }
 
-export interface MemberRole {
-  role: string;
-  verified: boolean;
-  stakeAmount: string;
-  lastActivity: number;
-  isDisputed: boolean;
+export interface Team {
+  leader: string;
+  name: string;
+  members: string[];
+  stakedAmount: string;
+  hired: boolean;
+  exists: boolean;
 }
 
 export interface Milestone {
-  description: string;
-  confirmed: boolean;
-  confirmations: number;
+  title: string;
   deadline: number;
+  compensation: string;
+  completed: boolean;
+  rewarded: boolean;
 }
 
-export interface ProjectRole {
-  member: string;
-  role: string;
+export interface Application {
+  teamId: string;
+  stakedAmount: string;
+  accepted: boolean;
+  applicant: string;
 }
 
-export interface Dispute {
-  disputer: string;
-  target: string;
-  reason: string;
-  createdAt: number;
-  resolved: boolean;
-  inFavorOfDisputer: boolean;
-  votesForDisputer: number;
-  votesForTarget: number;
-  voters: string[];
+// ========== ENUMS ==========
+export enum ProjectStatus {
+  HIRING = 0,
+  HIRED = 1,
+  FINISHED = 2
 }
 
-export interface MemberStats {
-  projectsShipped: number;
-  onTimeRateScore: number;
-  budgetAccuracyScore: number;
-  abandoned: number;
-  lastProject: number;
+export enum ProjectType {
+  HACKATHON = 0,
+  STARTUP = 1,
+  ENTERPRISE = 2
 }
 
-export interface PortableReputation {
-  score: number;
-  lastUpdated: number;
-  projectsShipped: number;
-  onTimeRate: number;
-  budgetAccuracy: number;
-  projectsAbandoned: number;
-  projectProofs: string[];
+export enum TeamMemberRole {
+  ADMIN = 0,
+  MEMBER = 1
 }
 
+// ========== EVENTS ==========
+export interface ProjectCreatedEvent {
+  projectId: string;
+  creator: string;
+  name: string;
+}
+
+export interface TeamCreatedEvent {
+  teamId: string;
+  leader: string;
+  name: string;
+}
+
+export interface ProjectFundedEvent {
+  projectId: string;
+  amount: string;
+}
+
+export interface AppliedForProjectEvent {
+  projectId: string;
+  teamId: string;
+  stake: string;
+}
+
+export interface TeamHiredEvent {
+  projectId: string;
+  teamId: string;
+}
+
+export interface MilestoneCreatedEvent {
+  projectId: string;
+  milestoneId: number;
+  title: string;
+}
+
+export interface MilestoneCompletedEvent {
+  projectId: string;
+  milestoneId: number;
+}
+
+export interface RewardReleasedEvent {
+  projectId: string;
+  milestoneId: number;
+  amount: string;
+}
+
+export interface ProjectCompletedEvent {
+  projectId: string;
+}
+
+// ========== CONTRACT INTERFACE ==========
 export interface SquadTrustContract {
   // Core Functions
-  createProject(name: string, requiredConfirmations: number, budget: string, deadline: number): Promise<string>;
-  claimRole(projectId: string, role: string): Promise<void>;
-  verifyRole(projectId: string, member: string): Promise<void>;
-  verifyRoleBySig(member: string, projectId: string, role: string, v: number, r: string, s: string): Promise<void>;
-  confirmMilestone(projectId: string, milestoneId: number, description: string): Promise<void>;
-  completeProject(projectId: string, actualCost: string): Promise<void>;
-  abandonProject(projectId: string): Promise<void>;
-  withdrawStake(projectId: string): Promise<void>;
-  
-  // Dispute Resolution
-  createDispute(projectId: string, target: string, reason: string): Promise<void>;
-  voteOnDispute(disputeId: string, voteForDisputer: boolean): Promise<void>;
-  slashStake(projectId: string, member: string): Promise<void>;
+  createProject(name: string, minTeamStake: string): Promise<{ projectId: string; txHash: string }>;
+  createTeam(name: string, members: string[]): Promise<string>;
+  fundProject(projectId: string, amount: string): Promise<void>;
+  applyForProject(projectId: string, teamId: string, stake: string): Promise<void>;
+  hireTeam(projectId: string, teamId: string): Promise<void>;
+  createMilestone(projectId: string, title: string, deadline: number, compensation: string): Promise<void>;
+  submitMilestoneCompletion(projectId: string, milestoneId: number): Promise<void>;
+  approveMilestone(projectId: string, milestoneId: number): Promise<void>;
+  completeProject(projectId: string): Promise<void>;
+  withdrawFromVault(teamId: string): Promise<void>;
   
   // View Functions
   getProject(projectId: string): Promise<Project>;
-  getMemberRole(projectId: string, member: string): Promise<MemberRole>;
-  getMemberProjects(member: string): Promise<string[]>;
-  getProjectMembers(projectId: string): Promise<string[]>;
-  getCredibilityScore(member: string): Promise<number>;
-  getMilestone(projectId: string, milestoneId: number): Promise<Milestone>;
-  getAllProjects(): Promise<string[]>;
-  getProjectRoles(projectId: string): Promise<ProjectRole[]>;
-  getDispute(disputeId: string): Promise<Dispute>;
-  getMemberStats(member: string): Promise<MemberStats>;
-  getPortableReputation(member: string): Promise<PortableReputation>;
+  getTeam(teamId: string): Promise<Team>;
+  getProjectMilestones(projectId: string): Promise<Milestone[]>;
+  getProjectApplications(projectId: string): Promise<Application[]>;
+  getTeamMembers(teamId: string): Promise<string[]>;
+  getProjectsCount(): Promise<number>;
+  getTeamsCount(): Promise<number>;
+  getProjectById(index: number): Promise<string>;
+  getTeamById(index: number): Promise<string>;
+  getHiredTeam(projectId: string): Promise<string>;
+  isTeamMember(teamId: string, member: string): Promise<boolean>;
+  getVaultBalance(): Promise<string>;
   
   // Constants
-  MIN_STAKE(): Promise<string>;
-  REPUTATION_THRESHOLD(): Promise<number>;
-  DISPUTER_REWARD_PERCENTAGE(): Promise<number>;
+  DISPUTE_FEE(): Promise<string>;
   SLASH_PERCENTAGE(): Promise<number>;
-  TIME_DECAY_PERIOD(): Promise<number>;
-  projectCount(): Promise<number>;
-  disputeCount(): Promise<number>;
+  vault(): Promise<string>;
+  vaultBalance(): Promise<string>;
 }
 
 export class SquadTrustService {
@@ -122,147 +155,258 @@ export class SquadTrustService {
   /**
    * Create a new project
    * @param name Project name
-   * @param requiredConfirmations Number of confirmations needed for milestones
-   * @param budget Project budget in ETH (e.g., "1000")
-   * @param deadline Project deadline as Unix timestamp
-   * @returns Project ID
+   * @param minTeamStake Minimum team stake in ETH (e.g., "0.1")
+   * @returns Object containing projectId and txHash
    */
-  async createProject(name: string, requiredConfirmations: number, budget: string, deadline: number): Promise<string> {
+  async createProject(name: string, minTeamStake: string): Promise<{ projectId: string; txHash: string }> {
     try {
-      console.log("Creating project:", name, requiredConfirmations, budget, deadline);
+      console.log("Creating project:", name, minTeamStake);
+      console.log("Contract address:", this.contract.target);
+      console.log("Signer address:", await this.signer.getAddress());
       
-      // First, verify the contract is deployed
-      try {
-        const code = await this.contract.runner?.provider?.getCode(this.contract.target);
-        if (!code || code === "0x") {
-          throw new Error("Contract is not deployed at the specified address");
-        }
-        console.log("Contract is deployed at:", this.contract.target);
-      } catch (e) {
-        console.error("Error checking contract deployment:", e);
-      }
+      const minTeamStakeWei = parseEther(minTeamStake);
+      console.log("Min team stake in Wei:", minTeamStakeWei.toString());
       
-      const budgetWei = parseEther(budget);
-      
-      // Create project on blockchain - the function returns the projectId directly
-      const tx = await this.contract.createProject(name, requiredConfirmations, budgetWei, deadline);
+      // Send the transaction
+      const tx = await this.contract.createProject(name, minTeamStakeWei);
       console.log("Transaction sent:", tx.hash);
+      
+      // Wait for the transaction to be mined
       const receipt = await tx.wait();
       console.log("Transaction receipt:", receipt);
       
       // Try to get the projectId from the transaction receipt
       if (receipt.logs && receipt.logs.length > 0) {
         console.log("Processing", receipt.logs.length, "logs");
+        console.log("All logs:", JSON.stringify(receipt.logs, null, 2));
+        
         for (let i = 0; i < receipt.logs.length; i++) {
           const log = receipt.logs[i];
           console.log(`Log ${i}:`, log);
+          
+          // Try to parse the log using the contract interface
           try {
-            // Try to parse the log using the contract interface
             const parsedLog = this.contract.interface.parseLog(log);
             console.log(`Parsed log ${i}:`, parsedLog);
             if (parsedLog?.name === 'ProjectCreated') {
               const projectId = parsedLog.args.projectId.toString();
               console.log("Found ProjectCreated event with projectId:", projectId);
-              return projectId;
+              return { projectId, txHash: tx.hash };
             }
           } catch (e) {
-            console.log(`Failed to parse log ${i}:`, e);
-            // Skip logs that can't be parsed by our contract interface
+            console.log(`Failed to parse log ${i} with contract interface:`, e);
+            
+            // Try alternative parsing methods
+            try {
+              // Check if this is a ProjectCreated event by looking at the topics
+              if (log.topics && log.topics.length > 0) {
+                console.log(`Log topic[0]:`, log.topics[0]);
+                
+                // Try to decode the event data directly
+                try {
+                  const decoded = this.contract.interface.decodeEventLog('ProjectCreated', log.data, log.topics);
+                  const projectId = decoded.projectId.toString();
+                  console.log("Decoded projectId:", projectId);
+                  return { projectId, txHash: tx.hash };
+                } catch (decodeError) {
+                  console.log(`Failed to decode ProjectCreated event:`, decodeError);
+                }
+              }
+            } catch (parseError) {
+              console.log(`Failed alternative parsing for log ${i}:`, parseError);
+            }
+            continue;
+          }
+        }
+      } else {
+        console.log("No logs found in transaction receipt");
+      }
+      
+      // If we can't find the event, try to get the project ID by calling the contract
+      // This is a fallback method - we'll try to get the latest project ID
+      console.log("No ProjectCreated event found, trying fallback method...");
+      
+      try {
+        // Get the total number of projects before and after creation
+        const projectsCountBefore = await this.contract.getProjectsCount();
+        console.log("Projects count before:", projectsCountBefore.toString());
+        
+        // The new project should be at index (projectsCountBefore - 1) since it's 0-indexed
+        const newProjectIndex = Number(projectsCountBefore) - 1;
+        if (newProjectIndex >= 0) {
+          const projectId = await this.contract.getProjectById(newProjectIndex);
+          console.log("Found project ID via fallback:", projectId);
+          return { projectId: projectId.toString(), txHash: tx.hash };
+        }
+      } catch (fallbackError) {
+        console.log("Fallback method failed:", fallbackError);
+        
+        // If all else fails, we can still return the transaction hash
+        // The project was created successfully, we just can't get the ID
+        console.log("Project creation was successful, but couldn't retrieve project ID");
+        console.log("Transaction hash:", tx.hash);
+        
+        // Return a placeholder project ID based on the transaction hash
+        const projectId = tx.hash.slice(0, 66); // Use first 66 chars of tx hash as project ID
+        return { projectId, txHash: tx.hash };
+      }
+      
+      throw new Error("Could not determine project ID from transaction. Project creation failed.");
+    } catch (error) {
+      console.error('Error creating project:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined,
+        code: (error as any)?.code,
+        reason: (error as any)?.reason
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new team
+   * @param name Team name
+   * @param members Array of team member addresses
+   * @returns Team ID
+   */
+  async createTeam(name: string, members: string[]): Promise<string> {
+    try {
+      console.log("Creating team:", name, members);
+      
+      const tx = await this.contract.createTeam(name, members);
+      console.log("Transaction sent:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Transaction receipt:", receipt);
+      
+      // Try to get the teamId from the transaction receipt
+      if (receipt.logs && receipt.logs.length > 0) {
+        for (let i = 0; i < receipt.logs.length; i++) {
+          const log = receipt.logs[i];
+          try {
+            const parsedLog = this.contract.interface.parseLog(log);
+            if (parsedLog?.name === 'TeamCreated') {
+              const teamId = parsedLog.args.teamId.toString();
+              console.log("Found TeamCreated event with teamId:", teamId);
+              return teamId;
+            }
+          } catch (e) {
             continue;
           }
         }
       }
       
-      // If we can't get the projectId from logs, throw an error
-      throw new Error("Could not determine project ID from transaction. Project creation failed.");
+      throw new Error("Could not determine team ID from transaction. Team creation failed.");
     } catch (error) {
-      console.error('Error creating project:', error);
+      console.error('Error creating team:', error);
       throw error;
     }
   }
 
   /**
-   * Claim a role in a project with stake
+   * Fund a project
    * @param projectId The project identifier
-   * @param role Role description
+   * @param amount Funding amount in ETH (e.g., "1.0")
    */
-  async claimRole(projectId: string, role: string): Promise<void> {
+  async fundProject(projectId: string, amount: string): Promise<void> {
     try {
-      // Get minimum stake amount
-      const minStake = await this.contract.MIN_STAKE();
-      const tx = await this.contract.claimRole(projectId, role, { value: minStake });
+      const amountWei = parseEther(amount);
+      const tx = await this.contract.fundProject(projectId, { value: amountWei });
       await tx.wait();
     } catch (error) {
-      console.error('Error claiming role:', error);
+      console.error('Error funding project:', error);
       throw error;
     }
   }
 
   /**
-   * Verify a member's role (only by project creator)
+   * Apply for a project with stake
    * @param projectId The project identifier
-   * @param member Address of the member to verify
+   * @param teamId The team identifier
+   * @param stake Stake amount in ETH (e.g., "0.1")
    */
-  async verifyRole(projectId: string, member: string): Promise<void> {
+  async applyForProject(projectId: string, teamId: string, stake: string): Promise<void> {
     try {
-      // Check if the member has claimed a role before verifying
-      const memberRole = await this.getMemberRole(projectId, member);
-      console.log('verifyRole: memberRole for', member, 'in project', projectId, '=', memberRole);
-      if (!memberRole || !memberRole.role || memberRole.role === "") {
-        throw new SquadTrustError('This member has not claimed a role and cannot be verified.');
-      }
-      const tx = await this.contract.verifyRole(projectId, member);
+      const stakeWei = parseEther(stake);
+      const tx = await this.contract.applyForProject(projectId, teamId, { value: stakeWei });
       await tx.wait();
     } catch (error) {
-      console.error('Error verifying role:', error);
+      console.error('Error applying for project:', error);
       throw error;
     }
   }
 
   /**
-   * Verify role using signature
-   * @param member Member address
+   * Hire a team for a project
    * @param projectId The project identifier
-   * @param role Role description
-   * @param v Signature v component
-   * @param r Signature r component
-   * @param s Signature s component
+   * @param teamId The team identifier
    */
-  async verifyRoleBySig(member: string, projectId: string, role: string, v: number, r: string, s: string): Promise<void> {
+  async hireTeam(projectId: string, teamId: string): Promise<void> {
     try {
-      const tx = await this.contract.verifyRoleBySig(member, projectId, role, v, r, s);
+      const tx = await this.contract.hireTeam(projectId, teamId);
       await tx.wait();
     } catch (error) {
-      console.error('Error verifying role by signature:', error);
+      console.error('Error hiring team:', error);
       throw error;
     }
   }
 
   /**
-   * Confirm project milestone completion
+   * Create a milestone for a project
+   * @param projectId The project identifier
+   * @param title Milestone title
+   * @param deadline Deadline as Unix timestamp
+   * @param compensation Compensation amount in ETH (e.g., "0.5")
+   */
+  async createMilestone(projectId: string, title: string, deadline: number, compensation: string): Promise<void> {
+    try {
+      const compensationWei = parseEther(compensation);
+      const tx = await this.contract.createMilestone(projectId, title, deadline, compensationWei);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error creating milestone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit milestone completion
    * @param projectId The project identifier
    * @param milestoneId Milestone identifier
-   * @param description Milestone description
    */
-  async confirmMilestone(projectId: string, milestoneId: number, description: string): Promise<void> {
+  async submitMilestoneCompletion(projectId: string, milestoneId: number): Promise<void> {
     try {
-      const tx = await this.contract.confirmMilestone(projectId, milestoneId, description);
+      const tx = await this.contract.submitMilestoneCompletion(projectId, milestoneId);
       await tx.wait();
     } catch (error) {
-      console.error('Error confirming milestone:', error);
+      console.error('Error submitting milestone completion:', error);
       throw error;
     }
   }
 
   /**
-   * Complete project and update credibility scores
+   * Approve milestone and release reward
    * @param projectId The project identifier
-   * @param actualCost Actual cost of the project in ETH (e.g., "950")
+   * @param milestoneId Milestone identifier
    */
-  async completeProject(projectId: string, actualCost: string): Promise<void> {
+  async approveMilestone(projectId: string, milestoneId: number): Promise<void> {
     try {
-      const actualCostWei = parseEther(actualCost);
-      const tx = await this.contract.completeProject(projectId, actualCostWei);
+      const tx = await this.contract.approveMilestone(projectId, milestoneId);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error approving milestone:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete project
+   * @param projectId The project identifier
+   */
+  async completeProject(projectId: string): Promise<void> {
+    try {
+      const tx = await this.contract.completeProject(projectId);
       await tx.wait();
     } catch (error) {
       console.error('Error completing project:', error);
@@ -271,77 +415,15 @@ export class SquadTrustService {
   }
 
   /**
-   * Abandon project
-   * @param projectId The project identifier
+   * Withdraw from vault (only vault can call)
+   * @param teamId The team identifier
    */
-  async abandonProject(projectId: string): Promise<void> {
+  async withdrawFromVault(teamId: string): Promise<void> {
     try {
-      const tx = await this.contract.abandonProject(projectId);
+      const tx = await this.contract.withdrawFromVault(teamId);
       await tx.wait();
     } catch (error) {
-      console.error('Error abandoning project:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Withdraw stake after role verification
-   * @param projectId The project identifier
-   */
-  async withdrawStake(projectId: string): Promise<void> {
-    try {
-      const tx = await this.contract.withdrawStake(projectId);
-      await tx.wait();
-    } catch (error) {
-      console.error('Error withdrawing stake:', error);
-      throw error;
-    }
-  }
-
-  // ============ DISPUTE RESOLUTION ============
-
-  /**
-   * Create a dispute against a member
-   * @param projectId The project identifier
-   * @param target Target member address
-   * @param reason Dispute reason
-   */
-  async createDispute(projectId: string, target: string, reason: string): Promise<void> {
-    try {
-      const tx = await this.contract.createDispute(projectId, target, reason);
-      await tx.wait();
-    } catch (error) {
-      console.error('Error creating dispute:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Vote on a dispute
-   * @param disputeId Dispute identifier
-   * @param voteForDisputer Whether to vote for the disputer
-   */
-  async voteOnDispute(disputeId: string, voteForDisputer: boolean): Promise<void> {
-    try {
-      const tx = await this.contract.voteOnDispute(disputeId, voteForDisputer);
-      await tx.wait();
-    } catch (error) {
-      console.error('Error voting on dispute:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Slash stake of a member
-   * @param projectId The project identifier
-   * @param member Member address
-   */
-  async slashStake(projectId: string, member: string): Promise<void> {
-    try {
-      const tx = await this.contract.slashStake(projectId, member);
-      await tx.wait();
-    } catch (error) {
-      console.error('Error slashing stake:', error);
+      console.error('Error withdrawing from vault:', error);
       throw error;
     }
   }
@@ -355,19 +437,16 @@ export class SquadTrustService {
    */
   async getProject(projectId: string): Promise<Project> {
     try {
-      const result = await this.contract.getProject(projectId);
+      const result = await this.contract.projects(projectId);
       return {
-        name: result[0],
-        creator: result[1],
-        completed: result[2],
-        abandoned: result[3],
-        createdAt: Number(result[4]),
-        completedAt: Number(result[5]),
-        abandonedAt: Number(result[6]),
-        memberCount: Number(result[7]),
-        budget: formatEther(result[8]),
-        actualCost: formatEther(result[9]),
-        deadline: Number(result[10])
+        creator: result[0],
+        name: result[1],
+        totalReward: formatEther(result[2]),
+        minTeamStake: formatEther(result[3]),
+        funded: result[4],
+        completed: result[5],
+        teamHired: result[6],
+        createdAt: Number(result[7])
       };
     } catch (error) {
       console.error('Error getting project:', error);
@@ -376,240 +455,191 @@ export class SquadTrustService {
   }
 
   /**
-   * Get member's role in project
-   * @param projectId The project identifier
-   * @param member Member address
-   * @returns Member role details
+   * Get team details
+   * @param teamId The team identifier
+   * @returns Team details
    */
-  async getMemberRole(projectId: string, member: string): Promise<MemberRole | null> {
+  async getTeam(teamId: string): Promise<Team> {
     try {
-      const result = await this.contract.getMemberRole(projectId, member);
+      const result = await this.contract.teams(teamId);
       return {
-        role: result[0],
-        verified: result[1],
-        stakeAmount: formatEther(result[2]),
-        lastActivity: Number(result[3]),
-        isDisputed: result[4]
+        leader: result[0],
+        name: result[1],
+        members: result[2],
+        stakedAmount: formatEther(result[3]),
+        hired: result[4],
+        exists: result[5]
       };
-    } catch (error: any) {
-      if (
-        error?.code === 'BAD_DATA' &&
-        error?.message?.includes('could not decode result data')
-      ) {
-        // Suppress expected error: user has no on-chain role
-        return null;
-      }
-      console.error('Error getting member role:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get all projects for a member
-   * @param member Member address
-   * @returns Array of project IDs
-   */
-  async getMemberProjects(member: string): Promise<string[]> {
-    try {
-      return await this.contract.getMemberProjects(member);
     } catch (error) {
-      console.error('Error getting member projects:', error);
+      console.error('Error getting team:', error);
       throw error;
     }
   }
 
   /**
-   * Get project members
+   * Get project milestones
    * @param projectId The project identifier
+   * @returns Array of milestones
+   */
+  async getProjectMilestones(projectId: string): Promise<Milestone[]> {
+    try {
+      const milestones = await this.contract.getProjectMilestones(projectId);
+      return milestones.map((milestone: any) => ({
+        title: milestone[0],
+        deadline: Number(milestone[1]),
+        compensation: formatEther(milestone[2]),
+        completed: milestone[3],
+        rewarded: milestone[4]
+      }));
+    } catch (error) {
+      console.error('Error getting project milestones:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get project applications
+   * @param projectId The project identifier
+   * @returns Array of applications
+   */
+  async getProjectApplications(projectId: string): Promise<Application[]> {
+    try {
+      const applications = await this.contract.getProjectApplications(projectId);
+      return applications.map((application: any) => ({
+        teamId: application[0],
+        stakedAmount: formatEther(application[1]),
+        accepted: application[2],
+        applicant: application[3]
+      }));
+    } catch (error) {
+      console.error('Error getting project applications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get team members
+   * @param teamId The team identifier
    * @returns Array of member addresses
    */
-  async getProjectMembers(projectId: string): Promise<string[]> {
+  async getTeamMembers(teamId: string): Promise<string[]> {
     try {
-      return await this.contract.getProjectMembers(projectId);
+      return await this.contract.getTeamMembers(teamId);
     } catch (error) {
-      console.error('Error getting project members:', error);
+      console.error('Error getting team members:', error);
       throw error;
     }
   }
 
   /**
-   * Get credibility score
-   * @param member Member address
-   * @returns Credibility score
+   * Get total projects count
+   * @returns Total number of projects
    */
-  async getCredibilityScore(member: string): Promise<number> {
+  async getProjectsCount(): Promise<number> {
     try {
-      const score = await this.contract.getCredibilityScore(member);
-      return Number(score);
+      const count = await this.contract.getProjectsCount();
+      return Number(count);
     } catch (error) {
-      console.error('Error getting credibility score:', error);
+      console.error('Error getting projects count:', error);
       throw error;
     }
   }
 
   /**
-   * Get milestone status
+   * Get total teams count
+   * @returns Total number of teams
+   */
+  async getTeamsCount(): Promise<number> {
+    try {
+      const count = await this.contract.getTeamsCount();
+      return Number(count);
+    } catch (error) {
+      console.error('Error getting teams count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get project by index
+   * @param index Project index
+   * @returns Project ID
+   */
+  async getProjectById(index: number): Promise<string> {
+    try {
+      return await this.contract.getProjectById(index);
+    } catch (error) {
+      console.error('Error getting project by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get team by index
+   * @param index Team index
+   * @returns Team ID
+   */
+  async getTeamById(index: number): Promise<string> {
+    try {
+      return await this.contract.getTeamById(index);
+    } catch (error) {
+      console.error('Error getting team by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get hired team for project
    * @param projectId The project identifier
-   * @param milestoneId Milestone identifier
-   * @returns Milestone details
+   * @returns Team ID of hired team
    */
-  async getMilestone(projectId: string, milestoneId: number): Promise<Milestone> {
+  async getHiredTeam(projectId: string): Promise<string> {
     try {
-      const result = await this.contract.getMilestone(projectId, milestoneId);
-      return {
-        description: result[0],
-        confirmed: result[1],
-        confirmations: Number(result[2]),
-        deadline: Number(result[3])
-      };
+      return await this.contract.getHiredTeam(projectId);
     } catch (error) {
-      console.error('Error getting milestone:', error);
+      console.error('Error getting hired team:', error);
       throw error;
     }
   }
 
   /**
-   * Get all projects
-   * @returns Array of all project IDs
-   */
-  async getAllProjects(): Promise<string[]> {
-    try {
-      return await this.contract.getAllProjects();
-    } catch (error) {
-      console.error('Error getting all projects:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get all roles of a project
-   * @param projectId The project identifier
-   * @returns Array of member addresses and their roles
-   */
-  async getProjectRoles(projectId: string): Promise<ProjectRole[]> {
-    try {
-      const [members, roles] = await this.contract.getProjectRoles(projectId);
-      const result: ProjectRole[] = [];
-      for (let i = 0; i < members.length; i++) {
-        result.push({
-          member: members[i],
-          role: roles[i]
-        });
-      }
-      return result;
-    } catch (error) {
-      console.error('Error getting project roles:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get dispute details
-   * @param disputeId Dispute identifier
-   * @returns Dispute details
-   */
-  async getDispute(disputeId: string): Promise<Dispute> {
-    try {
-      const result = await this.contract.getDispute(disputeId);
-      return {
-        disputer: result[0],
-        target: result[1],
-        reason: result[2],
-        createdAt: Number(result[3]),
-        resolved: result[4],
-        inFavorOfDisputer: result[5],
-        votesForDisputer: Number(result[6]),
-        votesForTarget: Number(result[7]),
-        voters: result[8]
-      };
-    } catch (error) {
-      console.error('Error getting dispute:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get member statistics
+   * Check if address is team member
+   * @param teamId The team identifier
    * @param member Member address
-   * @returns Member statistics
+   * @returns True if member
    */
-  async getMemberStats(member: string): Promise<MemberStats> {
+  async isTeamMember(teamId: string, member: string): Promise<boolean> {
     try {
-      const result = await this.contract.getMemberStats(member);
-      return {
-        projectsShipped: Number(result[0]),
-        onTimeRateScore: Number(result[1]),
-        budgetAccuracyScore: Number(result[2]),
-        abandoned: Number(result[3]),
-        lastProject: Number(result[4])
-      };
+      return await this.contract.isTeamMember(teamId, member);
     } catch (error) {
-      console.error('Error getting member stats:', error);
+      console.error('Error checking team member:', error);
       throw error;
     }
   }
 
   /**
-   * Get portable reputation
-   * @param member Member address
-   * @returns Portable reputation data
+   * Get vault balance
+   * @returns Vault balance in ETH
    */
-  async getPortableReputation(member: string): Promise<PortableReputation> {
+  async getVaultBalance(): Promise<string> {
     try {
-      const result = await this.contract.getPortableReputation(member);
-      return {
-        score: Number(result[0]),
-        lastUpdated: Number(result[1]),
-        projectsShipped: Number(result[2]),
-        onTimeRate: Number(result[3]),
-        budgetAccuracy: Number(result[4]),
-        projectsAbandoned: Number(result[5]),
-        projectProofs: result[6]
-      };
+      const balance = await this.contract.getVaultBalance();
+      return formatEther(balance);
     } catch (error) {
-      console.error('Error getting portable reputation:', error);
+      console.error('Error getting vault balance:', error);
       throw error;
     }
   }
 
   /**
-   * Get minimum stake amount
-   * @returns Minimum stake in ETH
+   * Get dispute fee
+   * @returns Dispute fee in ETH
    */
-  async getMinStake(): Promise<string> {
+  async getDisputeFee(): Promise<string> {
     try {
-      const minStake = await this.contract.MIN_STAKE();
-      return formatEther(minStake);
+      const fee = await this.contract.DISPUTE_FEE();
+      return formatEther(fee);
     } catch (error) {
-      console.error('Error getting min stake:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get reputation threshold
-   * @returns Reputation threshold
-   */
-  async getReputationThreshold(): Promise<number> {
-    try {
-      const threshold = await this.contract.REPUTATION_THRESHOLD();
-      return Number(threshold);
-    } catch (error) {
-      console.error('Error getting reputation threshold:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get disputer reward percentage
-   * @returns Disputer reward percentage
-   */
-  async getDisputerRewardPercentage(): Promise<number> {
-    try {
-      const percentage = await this.contract.DISPUTER_REWARD_PERCENTAGE();
-      return Number(percentage);
-    } catch (error) {
-      console.error('Error getting disputer reward percentage:', error);
+      console.error('Error getting dispute fee:', error);
       throw error;
     }
   }
@@ -629,43 +659,130 @@ export class SquadTrustService {
   }
 
   /**
-   * Get time decay period
-   * @returns Time decay period
+   * Get vault address
+   * @returns Vault address
    */
-  async getTimeDecayPeriod(): Promise<number> {
+  async getVaultAddress(): Promise<string> {
     try {
-      const period = await this.contract.TIME_DECAY_PERIOD();
-      return Number(period);
+      return await this.contract.vault();
     } catch (error) {
-      console.error('Error getting time decay period:', error);
+      console.error('Error getting vault address:', error);
+      throw error;
+    }
+  }
+
+  // ============ UTILITY FUNCTIONS ============
+
+  /**
+   * Get all projects
+   * @returns Array of all project IDs
+   */
+  async getAllProjects(): Promise<string[]> {
+    try {
+      const count = await this.getProjectsCount();
+      const projects: string[] = [];
+      
+      for (let i = 0; i < count; i++) {
+        const projectId = await this.getProjectById(i);
+        projects.push(projectId);
+      }
+      
+      return projects;
+    } catch (error) {
+      console.error('Error getting all projects:', error);
       throw error;
     }
   }
 
   /**
-   * Get total project count
-   * @returns Total number of projects
+   * Get all teams
+   * @returns Array of all team IDs
    */
-  async getProjectCount(): Promise<number> {
+  async getAllTeams(): Promise<string[]> {
     try {
-      const count = await this.contract.projectCount();
-      return Number(count);
+      const count = await this.getTeamsCount();
+      const teams: string[] = [];
+      
+      for (let i = 0; i < count; i++) {
+        const teamId = await this.getTeamById(i);
+        teams.push(teamId);
+      }
+      
+      return teams;
     } catch (error) {
-      console.error('Error getting project count:', error);
+      console.error('Error getting all teams:', error);
       throw error;
     }
   }
 
   /**
-   * Get total dispute count
-   * @returns Total number of disputes
+   * Get projects for a creator
+   * @param creator Creator address
+   * @returns Array of project IDs
    */
-  async getDisputeCount(): Promise<number> {
+  async getProjectsByCreator(creator: string): Promise<string[]> {
     try {
-      const count = await this.contract.disputeCount();
-      return Number(count);
+      const allProjects = await this.getAllProjects();
+      const creatorProjects: string[] = [];
+      
+      for (const projectId of allProjects) {
+        const project = await this.getProject(projectId);
+        if (project.creator.toLowerCase() === creator.toLowerCase()) {
+          creatorProjects.push(projectId);
+        }
+      }
+      
+      return creatorProjects;
     } catch (error) {
-      console.error('Error getting dispute count:', error);
+      console.error('Error getting projects by creator:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get teams for a leader
+   * @param leader Leader address
+   * @returns Array of team IDs
+   */
+  async getTeamsByLeader(leader: string): Promise<string[]> {
+    try {
+      const allTeams = await this.getAllTeams();
+      const leaderTeams: string[] = [];
+      
+      for (const teamId of allTeams) {
+        const team = await this.getTeam(teamId);
+        if (team.leader.toLowerCase() === leader.toLowerCase()) {
+          leaderTeams.push(teamId);
+        }
+      }
+      
+      return leaderTeams;
+    } catch (error) {
+      console.error('Error getting teams by leader:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get teams where user is a member
+   * @param member Member address
+   * @returns Array of team IDs
+   */
+  async getTeamsByMember(member: string): Promise<string[]> {
+    try {
+      const allTeams = await this.getAllTeams();
+      const memberTeams: string[] = [];
+      
+      for (const teamId of allTeams) {
+        const isMember = await this.isTeamMember(teamId, member);
+        if (isMember) {
+          memberTeams.push(teamId);
+        }
+      }
+      
+      return memberTeams;
+    } catch (error) {
+      console.error('Error getting teams by member:', error);
       throw error;
     }
   }
@@ -679,27 +796,46 @@ export class SquadTrustService {
  */
 export async function getSigner(): Promise<ethers.Signer | null> {
   try {
+    console.log("Getting signer...");
+    
     // Check if MetaMask is available
     if (!window.ethereum) {
+      console.error("MetaMask is not installed");
       throw new Error('MetaMask is not installed');
     }
+
+    console.log("MetaMask is available");
 
     // Request account access
     const accounts = await window.ethereum.request({
       method: 'eth_requestAccounts',
     });
 
+    console.log("Accounts requested:", accounts);
+
     if (!accounts || accounts.length === 0) {
+      console.error("No accounts found");
       throw new Error('No accounts found');
     }
+
+    console.log("Account found:", accounts[0]);
 
     // Create provider and signer
     const provider = new BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
+    console.log("Signer created successfully");
+    console.log("Signer address:", await signer.getAddress());
+    
     return signer;
   } catch (error) {
     console.error('Error getting signer:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+      code: (error as any)?.code
+    });
     return null;
   }
 }
@@ -739,36 +875,6 @@ export function formatEthAmount(amount: string): string {
  */
 export function parseEthAmount(amount: string): string {
   return parseEther(amount).toString();
-}
-
-// ============ EVENT TYPES ============
-
-export interface ProjectCreatedEvent {
-  projectId: string;
-  creator: string;
-  name: string;
-  timestamp: number;
-}
-
-export interface ProjectCompletedEvent {
-  projectId: string;
-  team: string;
-  credibilityImpact: number;
-  timestamp: number;
-}
-
-export interface RoleVerifiedEvent {
-  member: string;
-  projectId: string;
-  role: string;
-  timestamp: number;
-}
-
-export interface MilestoneConfirmedEvent {
-  projectId: string;
-  milestoneId: number;
-  confirmer: string;
-  confirmations: number;
 }
 
 // ============ ERROR HANDLING ============

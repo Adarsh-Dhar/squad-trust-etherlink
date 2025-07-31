@@ -13,6 +13,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { squadtrust_address } from '@/lib/contract/address';
 
 interface Team {
   id: string;
@@ -49,7 +50,7 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
   const selectedTeamId = watch("teamId");
 
   // Contract address - should match the one in the API
-  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
 
   // Handle params
   useEffect(() => {
@@ -102,32 +103,32 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
 
             try {
               // Get all project members from blockchain
-              const projectMembers = await squadTrustService.getProjectMembers(project.blockchainProjectId);
-              console.log(`Total members on blockchain: ${projectMembers.length}`);
+              // const projectMembers = await squadTrustService.getProjectMembers(project.blockchainProjectId);
+              // console.log(`Total members on blockchain: ${projectMembers.length}`);
 
               // Log detailed role information for each member
-              for (const memberAddress of projectMembers) {
-                try {
-                  const memberRole = await squadTrustService.getMemberRole(project.blockchainProjectId, memberAddress);
-                  if (memberRole) {
-                    console.log(`Member ${memberAddress}:`, {
-                      role: memberRole.role,
-                      verified: memberRole.verified,
-                      stakeAmount: memberRole.stakeAmount,
-                      lastActivity: new Date(Number(memberRole.lastActivity) * 1000).toISOString(),
-                      isDisputed: memberRole.isDisputed
-                    });
-                  } else {
-                    console.log(`Member ${memberAddress}: No role found`);
-                  }
-                } catch (error: any) {
-                  if (error?.code === 'BAD_DATA' && error?.message?.includes('could not decode result data')) {
-                    console.log(`Member ${memberAddress}: No on-chain role (expected for non-claimed members)`);
-                  } else {
-                    console.error(`Error getting role for member ${memberAddress}:`, error);
-                  }
-                }
-              }
+              // for (const memberAddress of projectMembers) {
+              //   try {
+              //     const memberRole = await squadTrustService.getMemberRole(project.blockchainProjectId, memberAddress);
+              //     if (memberRole) {
+              //       console.log(`Member ${memberAddress}:`, {
+              //         role: memberRole.role,
+              //         verified: memberRole.verified,
+              //         stakeAmount: memberRole.stakeAmount,
+              //         lastActivity: new Date(Number(memberRole.lastActivity) * 1000).toISOString(),
+              //         isDisputed: memberRole.isDisputed
+              //       });
+              //     } else {
+              //       console.log(`Member ${memberAddress}: No role found`);
+              //     }
+              //   } catch (error: any) {
+              //     if (error?.code === 'BAD_DATA' && error?.message?.includes('could not decode result data')) {
+              //       console.log(`Member ${memberAddress}: No on-chain role (expected for non-claimed members)`);
+              //     } else {
+              //       console.error(`Error getting role for member ${memberAddress}:`, error);
+              //     }
+              //   }
+              // }
 
               // Also log team members from database for comparison
               console.log(`\nTeam members from database:`);
@@ -239,12 +240,10 @@ export default function CreateProjectStandalonePage({ params }: { params: Promis
       
       // Create project on blockchain
       const requiredConfirmations = 2; // Default value
-      const budget = "1000"; // Default budget in ETH
-      const deadline = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days from now
-      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations, budget, deadline);
+      const result = await squadTrustService.createProject(data.title, "0.1"); // Use minTeamStake as second parameter
       
-      // console.log("Blockchain project created with ID:", blockchainProjectId);
-      setBlockchainProjectId(blockchainProjectId);
+      // console.log("Blockchain project created with ID:", result.projectId);
+      setBlockchainProjectId(result.projectId);
 
       // Step 2: Create project in database with blockchain reference
       // console.log("Step 2: Creating project in database...");

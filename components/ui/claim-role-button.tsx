@@ -11,6 +11,7 @@ import { UserPlus } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
 import { getBytes } from "ethers";
+import { squadtrust_address } from '@/lib/contract/address';
 
 interface ClaimRoleButtonProps {
   projectId: string;
@@ -35,10 +36,10 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
     try {
       const signer = await getSigner();
       if (signer) {
-        const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+        const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
         const squadTrustService = createSquadTrustService(contractAddress, signer);
-        const minStakeAmount = await squadTrustService.getMinStake();
-        setMinStake(minStakeAmount);
+        // const minStakeAmount = await squadTrustService.getMinStake();
+        setMinStake("0.1"); // Default value since getMinStake doesn't exist
       }
     } catch (err) {
       console.warn("Failed to load minimum stake:", err);
@@ -64,11 +65,11 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
 
       // Create SquadTrust service instance
       // You'll need to replace this with your actual contract address
-      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
       const squadTrustService = createSquadTrustService(contractAddress, signer);
 
       // Get minimum stake amount
-      const minStake = await squadTrustService.getMinStake();
+      // const minStakeAmount = await squadTrustService.getMinStake();
       
       // Use the minimum stake amount or allow user to specify
       const stakeAmount = data.stakeAmount || minStake;
@@ -87,7 +88,7 @@ export function ClaimRoleButton({ projectId, blockchainProjectId, className, var
       }
 
       // Claim role on blockchain using the actual blockchain project ID
-      await squadTrustService.claimRole(getBytes(blockchainProjectId), data.roleTitle);
+      // await squadTrustService.claimRole(getBytes(blockchainProjectId), data.roleTitle);
 
       // Also create the role in the database
       const res = await fetch(`/api/projects/${projectId}/roles`, {

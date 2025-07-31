@@ -10,6 +10,7 @@ import { Shield, CheckCircle } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { squadtrust_address } from '@/lib/contract/address';
 
 interface VerifyRoleButtonProps {
   projectId: string;
@@ -56,7 +57,7 @@ export function VerifyRoleButton({
       }
 
       // Create SquadTrust service instance
-      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
       const squadTrustService = createSquadTrustService(contractAddress, signer);
 
       console.log("Verifying role with:", {

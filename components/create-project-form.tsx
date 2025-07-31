@@ -12,6 +12,7 @@ import { useWallet } from "@/hooks/useWallet";
 import { Wallet, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { squadtrust_address } from '@/lib/contract/address';
 
 export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: string, redirectToProjects?: boolean }) {
   const router = useRouter();
@@ -22,7 +23,7 @@ export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: stri
   const { address, isConnected, connectWallet, isConnecting } = useWallet();
 
   // Contract address - should match the one in the API
-  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || "0x0b306bf915c4d645ff596e518faf3f9669b97016";
+  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
 
   const onSubmit = async (data: any) => {
     setSubmitError(null);

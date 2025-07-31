@@ -1,1 +1,2 @@
-export const address = "0x1aBbcD68991f1f784a58fda6ffC948f5F46f1b0d";
+export const squadtrust_address = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+export const vault_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"

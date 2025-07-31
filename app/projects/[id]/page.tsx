@@ -27,7 +27,7 @@ import {
 import { MilestoneForm } from "@/components/milestones/MilestoneForm";
 import { MilestoneCard } from "@/components/milestones/MilestoneCard";
 import { getSigner, createSquadTrustService } from "@/lib/contract";
-import { address as CONTRACT_ADDRESS } from "@/lib/contract/address";
+import { squadtrust_address as CONTRACT_ADDRESS } from "@/lib/contract/address";
 import { useWallet } from "@/hooks/useWallet";
 
 interface Project {
@@ -527,8 +527,7 @@ export default function ProjectDetailsPage() {
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      const actualCost = "950"; // Default actual cost in ETH
-      await squadTrustService.completeProject(project.blockchainProjectId, actualCost);
+      await squadTrustService.completeProject(project.blockchainProjectId);
       // 2. Update DB
       const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
       const data = await res.json();
