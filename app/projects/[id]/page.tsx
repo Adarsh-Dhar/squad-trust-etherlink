@@ -66,13 +66,26 @@ interface Application {
   id: string;
   applicantId: string;
   applicant: {
+    id: string;
     name?: string;
     walletAddress: string;
+    teams?: {
+      team: {
+        id: string;
+        name: string;
+      };
+    }[];
   };
   coverLetter: string;
   proposedStake: number;
+  quoteAmount: number;
+  teamExperience?: string;
+  teamScore?: number;
   status: string;
   appliedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  deadline: string;
 }
 
 export default function ProjectDetailsPage() {
@@ -109,6 +122,19 @@ export default function ProjectDetailsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [applicationsError, setApplicationsError] = useState<string | null>(null);
+  const [acceptingApplicationId, setAcceptingApplicationId] = useState<string | null>(null);
+  const [rejectingApplicationId, setRejectingApplicationId] = useState<string | null>(null);
+  const [applicationActionError, setApplicationActionError] = useState<string | null>(null);
+  
+  // Filtering and sorting state
+  const [sortBy, setSortBy] = useState<'quoteAmount' | 'proposedStake' | 'teamScore' | 'deadline' | 'appliedAt'>('appliedAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterMinQuote, setFilterMinQuote] = useState<string>('');
+  const [filterMaxQuote, setFilterMaxQuote] = useState<string>('');
+  const [filterMinStake, setFilterMinStake] = useState<string>('');
+  const [filterMaxStake, setFilterMaxStake] = useState<string>('');
+  const [filterMinScore, setFilterMinScore] = useState<string>('');
+  const [filterMaxScore, setFilterMaxScore] = useState<string>('');
 
   // Milestone form
   const { register: registerMilestone, handleSubmit: handleSubmitMilestone, reset: resetMilestone, formState: { errors: milestoneErrors, isSubmitting: isSubmittingMilestone } } = useForm();
@@ -293,7 +319,7 @@ export default function ProjectDetailsPage() {
       setApplicationsLoading(true);
       setApplicationsError(null);
       try {
-        const res = await fetch(`/api/projects/${projectId}/applications`);
+        const res = await fetch(`/api/projects/${projectId}/apply`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to fetch applications");
         setApplications(data);
@@ -305,6 +331,121 @@ export default function ProjectDetailsPage() {
     }
     if (projectId) fetchApplications();
   }, [projectId]);
+
+  // Accept application handler
+  const handleAcceptApplication = async (applicationId: string) => {
+    setAcceptingApplicationId(applicationId);
+    setApplicationActionError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/apply/${applicationId}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to accept application");
+      
+      // Refresh project and applications data
+      const projectRes = await fetch(`/api/projects/${projectId}`);
+      const projectData = await projectRes.json();
+      if (projectRes.ok) {
+        setProject(projectData);
+      }
+      
+      // Refresh applications
+      const applicationsRes = await fetch(`/api/projects/${projectId}/apply`);
+      const applicationsData = await applicationsRes.json();
+      if (applicationsRes.ok) {
+        setApplications(applicationsData);
+      }
+    } catch (e: any) {
+      setApplicationActionError(e.message || "Failed to accept application");
+    } finally {
+      setAcceptingApplicationId(null);
+    }
+  };
+
+  // Reject application handler
+  const handleRejectApplication = async (applicationId: string) => {
+    setRejectingApplicationId(applicationId);
+    setApplicationActionError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/apply/${applicationId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reject application");
+      
+      // Remove the rejected application from the list
+      setApplications((prev) => prev.filter(app => app.id !== applicationId));
+    } catch (e: any) {
+      setApplicationActionError(e.message || "Failed to reject application");
+    } finally {
+      setRejectingApplicationId(null);
+    }
+  };
+
+  // Filter and sort applications
+  const getFilteredAndSortedApplications = () => {
+    let filtered = [...applications];
+
+    // Apply filters
+    if (filterMinQuote) {
+      filtered = filtered.filter(app => app.quoteAmount >= parseFloat(filterMinQuote));
+    }
+    if (filterMaxQuote) {
+      filtered = filtered.filter(app => app.quoteAmount <= parseFloat(filterMaxQuote));
+    }
+    if (filterMinStake) {
+      filtered = filtered.filter(app => app.proposedStake >= parseFloat(filterMinStake));
+    }
+    if (filterMaxStake) {
+      filtered = filtered.filter(app => app.proposedStake <= parseFloat(filterMaxStake));
+    }
+    if (filterMinScore) {
+      filtered = filtered.filter(app => app.teamScore && app.teamScore >= parseFloat(filterMinScore));
+    }
+    if (filterMaxScore) {
+      filtered = filtered.filter(app => app.teamScore && app.teamScore <= parseFloat(filterMaxScore));
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'quoteAmount':
+          aValue = a.quoteAmount;
+          bValue = b.quoteAmount;
+          break;
+        case 'proposedStake':
+          aValue = a.proposedStake;
+          bValue = b.proposedStake;
+          break;
+        case 'teamScore':
+          aValue = a.teamScore || 0;
+          bValue = b.teamScore || 0;
+          break;
+        case 'deadline':
+          aValue = new Date(a.deadline).getTime();
+          bValue = new Date(b.deadline).getTime();
+          break;
+        case 'appliedAt':
+        default:
+          aValue = new Date(a.appliedAt).getTime();
+          bValue = new Date(b.appliedAt).getTime();
+          break;
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  };
 
   const openEdit = () => {
     if (project) {
@@ -686,6 +827,121 @@ export default function ProjectDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filter and Sort Controls */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium">Sort By</Label>
+                    <select 
+                      value={sortBy} 
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full mt-1 p-2 border rounded-md"
+                    >
+                      <option value="appliedAt">Applied Date</option>
+                      <option value="quoteAmount">Quote Amount</option>
+                      <option value="proposedStake">Stake Amount</option>
+                      <option value="teamScore">Team Score</option>
+                      <option value="deadline">Deadline</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Sort Order</Label>
+                    <select 
+                      value={sortOrder} 
+                      onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                      className="w-full mt-1 p-2 border rounded-md"
+                    >
+                      <option value="desc">Descending</option>
+                      <option value="asc">Ascending</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Min Quote (ETH)</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMinQuote} 
+                      onChange={(e) => setFilterMinQuote(e.target.value)}
+                      placeholder="Min"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Max Quote (ETH)</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMaxQuote} 
+                      onChange={(e) => setFilterMaxQuote(e.target.value)}
+                      placeholder="Max"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Min Stake (ETH)</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMinStake} 
+                      onChange={(e) => setFilterMinStake(e.target.value)}
+                      placeholder="Min"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Max Stake (ETH)</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMaxStake} 
+                      onChange={(e) => setFilterMaxStake(e.target.value)}
+                      placeholder="Max"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <Label className="text-sm font-medium">Min Team Score</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMinScore} 
+                      onChange={(e) => setFilterMinScore(e.target.value)}
+                      placeholder="Min"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Max Team Score</Label>
+                    <Input 
+                      type="number" 
+                      value={filterMaxScore} 
+                      onChange={(e) => setFilterMaxScore(e.target.value)}
+                      placeholder="Max"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setFilterMinQuote('');
+                      setFilterMaxQuote('');
+                      setFilterMinStake('');
+                      setFilterMaxStake('');
+                      setFilterMinScore('');
+                      setFilterMaxScore('');
+                      setSortBy('appliedAt');
+                      setSortOrder('desc');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
               {applicationsLoading ? (
                 <div className="text-muted-foreground">Loading applications...</div>
               ) : applicationsError ? (
@@ -694,7 +950,10 @@ export default function ProjectDetailsPage() {
                 <div className="text-muted-foreground">No applications yet.</div>
               ) : (
                 <div className="space-y-3">
-                  {applications.map((application) => (
+                  {applicationActionError && (
+                    <div className="text-destructive text-sm mb-4">{applicationActionError}</div>
+                  )}
+                  {getFilteredAndSortedApplications().map((application) => (
                     <div key={application.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card">
                       <div className="flex-1">
                         <div className="font-medium">{application.applicant.name || application.applicant.walletAddress}</div>
@@ -703,7 +962,23 @@ export default function ProjectDetailsPage() {
                           Proposed Stake: <span className="font-semibold">{application.proposedStake} ETH</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
+                          Quote Amount: <span className="font-semibold">{application.quoteAmount} ETH</span>
+                        </div>
+                        {application.teamExperience && (
+                          <div className="text-xs text-muted-foreground">
+                            Team Experience: {application.teamExperience}
+                          </div>
+                        )}
+                        {application.teamScore && (
+                          <div className="text-xs text-muted-foreground">
+                            Team Score: {application.teamScore}
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground">
                           Applied: {new Date(application.appliedAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Deadline: {new Date(application.deadline).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0">
@@ -712,10 +987,38 @@ export default function ProjectDetailsPage() {
                         </Badge>
                         {application.status === "PENDING" && (
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline">Accept</Button>
-                            <Button size="sm" variant="destructive">Reject</Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleAcceptApplication(application.id)}
+                              disabled={acceptingApplicationId === application.id || rejectingApplicationId === application.id}
+                            >
+                              {acceptingApplicationId === application.id ? "Accepting..." : "Accept"}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive"
+                              onClick={() => handleRejectApplication(application.id)}
+                              disabled={rejectingApplicationId === application.id || acceptingApplicationId === application.id}
+                            >
+                              {rejectingApplicationId === application.id ? "Rejecting..." : "Reject"}
+                            </Button>
                           </div>
                         )}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const teamId = application.applicant.teams?.[0]?.team?.id;
+                            if (teamId) {
+                              router.push(`/teams/${teamId}`);
+                            }
+                          }}
+                          disabled={!application.applicant.teams?.[0]?.team?.id}
+                          className="mt-2"
+                        >
+                          View Team Details
+                        </Button>
                       </div>
                     </div>
                   ))}

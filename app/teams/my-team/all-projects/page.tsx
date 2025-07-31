@@ -55,7 +55,6 @@ export default function AllProjectsPage() {
     coverLetter: '',
     proposedStake: '',
     teamExperience: '',
-    timeline: '',
     quoteAmount: '',
     deadline: '',
   });
@@ -106,7 +105,6 @@ export default function AllProjectsPage() {
           coverLetter: applicationData.coverLetter,
           proposedStake: parseFloat(applicationData.proposedStake),
           teamExperience: applicationData.teamExperience,
-          timeline: applicationData.timeline,
           quoteAmount: parseFloat(applicationData.quoteAmount),
           deadline: applicationData.deadline,
         }),
@@ -121,7 +119,6 @@ export default function AllProjectsPage() {
         coverLetter: '',
         proposedStake: '',
         teamExperience: '',
-        timeline: '',
         quoteAmount: '',
         deadline: '',
       });
