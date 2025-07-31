@@ -80,10 +80,16 @@ export default function MyProjectsPage() {
       
       const data = await response.json();
       
+      // Add debugging
+      console.log('Fetched projects data:', data);
+      console.log('Connected wallet:', connectedWallet);
+      
       // Filter projects to only show those created by the connected wallet
       const myProjects = data.filter((project: Project) => 
         project.creator.toLowerCase() === connectedWallet.toLowerCase()
       );
+      
+      console.log('My projects after filtering:', myProjects);
       
       setProjects(myProjects);
     } catch (err) {
@@ -357,6 +363,10 @@ export default function MyProjectsPage() {
                   <Link
                     href={`/projects/${project.id}`}
                     className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center font-medium"
+                    onClick={() => {
+                      console.log('View Project clicked for project:', project.id);
+                      console.log('Routing to:', `/projects/${project.id}`);
+                    }}
                   >
                     View Project
                   </Link>

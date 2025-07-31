@@ -172,14 +172,14 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         console.log('Team data loaded:', {
           teamId,
           teamName: teamData.name,
-          members: teamData.members.map((m: any) => ({
+          members: (teamData.members || []).map((m: any) => ({
             id: m.id,
             walletAddress: m.user.walletAddress,
             name: m.user.name,
             role: m.role
           })),
           currentAddress: address,
-          projects: teamData.projects.map((p: any) => ({
+          projects: (teamData.projects || []).map((p: any) => ({
             id: p.id,
             name: p.name,
             blockchainProjectId: p.blockchainProjectId
@@ -246,7 +246,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
 
   // Log member detection when team or address changes
   useEffect(() => {
-    if (team && address) {
+    if (team && address && team.members && Array.isArray(team.members)) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Member detection result:', {
           address,
@@ -267,7 +267,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       if (!signer) return;
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
       const updates: Record<string, { stakeAmount: string, verified: boolean }> = {};
-      await Promise.all(team.projects.map(async (project) => {
+      await Promise.all((team.projects || []).map(async (project) => {
         // Only call if blockchainProjectId is a valid 0x-prefixed 32-byte hex string
         if (!project.blockchainProjectId || project.blockchainProjectId.length !== 66) return;
         try {
@@ -323,6 +323,16 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       return false;
     }
     
+    // Check if team.members exists and is an array
+    if (!team.members || !Array.isArray(team.members)) {
+      console.log('Member check failed - team.members is not available:', { 
+        hasMembers: !!team.members, 
+        isArray: Array.isArray(team.members),
+        team: team 
+      });
+      return false;
+    }
+    
     // Normalize the current user's address
     const normalizedUserAddress = address.toLowerCase();
     
@@ -362,6 +372,16 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       return null;
     }
     
+    // Check if team.members exists and is an array
+    if (!team.members || !Array.isArray(team.members)) {
+      console.log('Role check failed - team.members is not available:', { 
+        hasMembers: !!team.members, 
+        isArray: Array.isArray(team.members),
+        team: team 
+      });
+      return null;
+    }
+    
     const normalizedUserAddress = address.toLowerCase();
     const member = team.members.find(member => {
       const normalizedMemberAddress = member.user.walletAddress.toLowerCase();
@@ -390,13 +410,13 @@ export function TeamProfile({ teamId }: { teamId: string }) {
       connectedWalletAddress: address,
       teamId: teamId,
       teamName: team?.name,
-      currentMembers: team?.members.map(m => ({
+      currentMembers: (team?.members || []).map(m => ({
         id: m.id,
         walletAddress: m.user.walletAddress,
         name: m.user.name,
         role: m.role
       })),
-      totalMembers: team?.members.length
+      totalMembers: team?.members?.length || 0
     });
 
     setJoining(true);
@@ -620,10 +640,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
 
   const calculateTotalFunding = (projects: Project[]) => {
     return projects.reduce((total, project) => {
-      const projectFunding = project.funding.reduce((sum: number, fund: any) => sum + fund.amount, 0);
+      const projectFunding = (project.funding || []).reduce((sum: number, fund: any) => sum + fund.amount, 0);
       return total + projectFunding;
     }, 0);
-  }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', { 
@@ -659,10 +679,10 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   console.log('Team Profile Debug:', {
     address,
     isConnected: !!address,
-    teamMembers: team.members.map(m => ({ 
+    teamMembers: team.members?.map(m => ({ 
       walletAddress: m.user.walletAddress, 
       role: m.role 
-    })),
+    })) || [],
     isMember,
     userRole,
     shouldShowCreateButton: isMember && userRole === 'ADMIN'
@@ -698,7 +718,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                 <p className="text-muted-foreground">Founded in {formatDate(team.createdAt)}</p>
                 {team.tags && team.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {team.tags.map((tag) => (
+                    {(team.tags || []).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
                         {tag}
                       </Badge>
@@ -790,11 +810,11 @@ export function TeamProfile({ teamId }: { teamId: string }) {
               </div>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-primary">{team.projects.length}</div>
+                  <div className="text-2xl font-bold text-primary">{team.projects?.length || 0}</div>
                   <div className="text-xs text-muted-foreground">Projects</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-primary">{team.members.length}</div>
+                  <div className="text-2xl font-bold text-primary">{team.members?.length || 0}</div>
                   <div className="text-xs text-muted-foreground">Members</div>
                 </div>
                 <div>
@@ -883,7 +903,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             </div>
           </div>
           <div className="grid gap-6">
-            {team.projects.length === 0 ? (
+            {!team.projects || team.projects.length === 0 ? (
               <Card className="animate-slide-up">
                 <CardContent className="p-6 text-center text-muted-foreground">
                   <FolderOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -891,9 +911,9 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                 </CardContent>
               </Card>
             ) : (
-              team.projects.map((project, index) => {
+              (team.projects || []).map((project, index) => {
                 const statusBadge = getProjectStatusBadge(project.status);
-                const projectFunding = project.funding.reduce((sum: number, fund: any) => sum + fund.amount, 0);
+                const projectFunding = (project.funding || []).reduce((sum: number, fund: any) => sum + fund.amount, 0);
                 
                 return (
                   <Card key={project.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
@@ -909,7 +929,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                           </div>
                           <p className="text-muted-foreground mb-4">{project.description}</p>
                           <div className="flex flex-wrap gap-2">
-                            {project.milestones.map((milestone) => (
+                            {(project.milestones || []).map((milestone) => (
                               <Badge key={milestone.id} variant="outline" className="text-xs">
                                 {milestone.title}
                               </Badge>
@@ -932,7 +952,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                             <h4 className="text-sm font-medium text-muted-foreground">Role Management</h4>
                             {isMember && userRole === 'ADMIN' && (
                               <div className="flex gap-2">
-                                {team.members
+                                {(team.members || [])
                                   .filter(member => member.role !== 'ADMIN')
                                   .map((member) => (
                                     <VerifyRoleButton
@@ -1030,7 +1050,13 @@ export function TeamProfile({ teamId }: { teamId: string }) {
             )}
           </div>
           <div className="grid gap-6">
-            {team.projects.flatMap(project => project.funding).length === 0 ? (
+            {(team.projects || []).flatMap(project => 
+              (project.funding || []).map(fund => ({
+                ...fund,
+                projectTitle: project.name,
+                projectId: project.id
+              }))
+            ).length === 0 ? (
               <Card className="animate-slide-up">
                 <CardContent className="p-6 text-center text-muted-foreground">
                   <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1038,8 +1064,8 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                 </CardContent>
               </Card>
             ) : (
-              team.projects.flatMap(project => 
-                project.funding.map(fund => ({
+              (team.projects || []).flatMap(project => 
+                (project.funding || []).map(fund => ({
                   ...fund,
                   projectTitle: project.name,
                   projectId: project.id
@@ -1081,9 +1107,9 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                   <Label htmlFor="funding-project">Project</Label>
                   <select id="funding-project" {...registerFunding("projectId", { required: "Project is required" })} className="w-full border rounded p-2">
                     <option value="">Select a project</option>
-                    {team.projects.map(project => (
+                    {team.projects?.map(project => (
                       <option key={project.id} value={project.id}>{project.name}</option>
-                    ))}
+                    )) || []}
                   </select>
                   {fundingErrors.projectId && <p className="text-sm text-destructive mt-1">{fundingErrors.projectId.message as string}</p>}
                 </div>
@@ -1121,7 +1147,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
         {/* Contributors */}
         <TabsContent value="contributors" className="space-y-6">
           <div className="grid gap-4">
-            {team.members.length === 0 ? (
+            {!team.members || team.members.length === 0 ? (
               <Card className="animate-slide-up">
                 <CardContent className="p-6 text-center text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1129,15 +1155,14 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                 </CardContent>
               </Card>
             ) : (
-              team.members.map((member, index) => (
+              (team.members || []).map((member, index) => (
                 <Card key={member.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
                   <CardContent className="p-6">
                     <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
                           {member.user.name
-                            ? member.user.name
-                                .split(" ")
+                            ? (member.user.name || '').split(" ")
                                 .map((n) => n[0])
                                 .join("")
                             : member.user.walletAddress.slice(0, 2).toUpperCase()}
@@ -1184,7 +1209,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                         {/* Show VerifyRoleButton for team admins and project creators */}
                         {isMember && userRole === 'ADMIN' && member.role !== 'ADMIN' && (
                           <div className="flex gap-2">
-                            {team.projects.map((project) => (
+                            {(team.projects || []).map((project) => (
                               <VerifyRoleButton
                                 key={`${member.id}-${project.id}`}
                                 projectId={project.id}

@@ -80,6 +80,9 @@ export default function ProjectDetailsPage() {
   const params = useParams();
   const projectId = params?.id as string;
 
+  // Add debugging
+  console.log('ProjectDetailsPage rendered with projectId:', projectId);
+
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,11 +233,14 @@ export default function ProjectDetailsPage() {
       setLoading(true);
       setError(null);
       try {
+        console.log('Fetching project with ID:', projectId);
         const res = await fetch(`/api/projects/${projectId}`);
         const data = await res.json();
+        console.log('Project API response:', data);
         if (!res.ok) throw new Error(data.error || "Failed to fetch project");
         setProject(data);
       } catch (e: any) {
+        console.error('Error fetching project:', e);
         setError(e.message || "Failed to load project");
       } finally {
         setLoading(false);
