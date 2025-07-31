@@ -1,7 +1,7 @@
 // PATCH /milestones/:id/complete
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { VerificationType } from '@prisma/client';
+import { VerificationType, DifficultyTier } from '@prisma/client';
 
 interface MilestoneCompletionBody {
   achievedValue?: number;
@@ -69,6 +69,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: updateData,
     });
+
+    // --- TEAM SCORE UPDATE LOGIC ---
+    // Get milestone with project and team
+    const milestoneWithProject = await prisma.milestone.findUnique({
+      where: { id },
+      include: { project: { include: { team: true } } },
+    });
+    if (milestoneWithProject?.project?.teamId && milestoneWithProject.difficulty) {
+      const teamId = milestoneWithProject.project.teamId;
+      const difficulty = milestoneWithProject.difficulty as DifficultyTier;
+      // Difficulty multipliers
+      const DIFFICULTY_MULTIPLIER: Record<DifficultyTier, number> = {
+        EASY: 1,
+        MEDIUM: 2,
+        HARD: 4,
+        EXPERT: 8,
+      };
+      const baseScore = 10;
+      const scoreToAdd = baseScore * DIFFICULTY_MULTIPLIER[difficulty];
+      // Upsert team credibility score
+      await prisma.credibilityScore.upsert({
+        where: { teamId },
+        update: { score: { increment: scoreToAdd }, lastUpdated: new Date() },
+        create: { teamId, score: scoreToAdd, lastUpdated: new Date() },
+      });
+    }
+    // --- END TEAM SCORE UPDATE LOGIC ---
     
     // If verification data is provided, create verification record
     if (verificationData && currentMilestone.kpi) {
