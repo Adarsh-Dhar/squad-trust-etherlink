@@ -145,7 +145,7 @@ export interface PortableReputation {
 export interface SquadTrustContract {
   // Core Functions
   createProject(name: string, minTeamStake: string): Promise<{ projectId: string; txHash: string }>;
-  createTeam(name: string, members: string[]): Promise<string>;
+  createTeam(name: string, members: string[]): Promise<{ teamId: string; txHash: string }>;
   fundProject(projectId: string, amount: string): Promise<void>;
   applyForProject(projectId: string, teamId: string, stake: string): Promise<void>;
   hireTeam(projectId: string, teamId: string): Promise<void>;
@@ -304,16 +304,17 @@ export class SquadTrustService {
    * Create a new team
    * @param name Team name
    * @param members Array of team member addresses
-   * @returns Team ID
+   * @returns Object containing teamId and txHash
    */
-  async createTeam(name: string, members: string[]): Promise<string> {
+  async createTeam(name: string, members: string[]): Promise<{ teamId: string; txHash: string }> {
     try {
       console.log("Creating team:", name, members);
       
       const tx = await this.contract.createTeam(name, members);
-      console.log("Transaction sent:", tx.hash);
+      console.log("🚀 Transaction sent! Hash:", tx.hash);
       const receipt = await tx.wait();
-      console.log("Transaction receipt:", receipt);
+      console.log("✅ Transaction confirmed! Block:", receipt.blockNumber);
+      console.log("📋 Transaction hash:", tx.hash);
       
       // Try to get the teamId from the transaction receipt
       if (receipt.logs && receipt.logs.length > 0) {
@@ -323,8 +324,9 @@ export class SquadTrustService {
             const parsedLog = this.contract.interface.parseLog(log);
             if (parsedLog?.name === 'TeamCreated') {
               const teamId = parsedLog.args.teamId.toString();
-              console.log("Found TeamCreated event with teamId:", teamId);
-              return teamId;
+              console.log("🎉 Found TeamCreated event with teamId:", teamId);
+              console.log("🔗 Transaction hash:", tx.hash);
+              return { teamId, txHash: tx.hash };
             }
           } catch (e) {
             continue;

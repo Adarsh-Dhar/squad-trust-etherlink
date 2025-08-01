@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, bio, website, createdBy, tags } = body;
+    const { name, bio, website, createdBy, tags, onchainTeamId } = body;
     
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Team name is required.' }, { status: 400 });
@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
     if (!createdBy || typeof createdBy !== 'string') {
       return NextResponse.json({ error: 'Team creator wallet address is required.' }, { status: 400 });
     }
+
+    if (!onchainTeamId || typeof onchainTeamId !== 'string') {
+      return NextResponse.json({ error: 'Onchain team ID is required.' }, { status: 400 });
+    }
+
+    console.log("Storing team in database with onchain ID:", onchainTeamId);
 
     // Find or create the user based on wallet address
     let user = await prisma.user.findUnique({
@@ -44,6 +50,7 @@ export async function POST(req: NextRequest) {
         bio: bio || null,
         website: website || null,
         tags: tags && Array.isArray(tags) ? tags : [],
+        onchainTeamId: onchainTeamId, // Store the onchain team ID
         members: {
           create: {
             userId: user.id,
@@ -59,6 +66,8 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    console.log("✅ Team stored in database successfully:", team.id);
 
     return NextResponse.json(team, { status: 201 });
   } catch (error) {

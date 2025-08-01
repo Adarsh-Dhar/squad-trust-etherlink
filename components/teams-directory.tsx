@@ -543,7 +543,11 @@ function Section({ title, teams, renderTeam, emptyMsg }: { title: string, teams:
         <div className="text-muted-foreground text-center py-8">{emptyMsg}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teams.map((team, idx) => renderTeam(team, idx))}
+          {teams.map((team, idx) => (
+            <div key={team.id}>
+              {renderTeam(team, idx)}
+            </div>
+          ))}
         </div>
       )}
     </div>

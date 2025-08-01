@@ -523,15 +523,21 @@ export default function ProjectDetailsPage() {
       if (!project?.blockchainProjectId) {
         throw new Error("Blockchain project ID not found for this project.");
       }
-      // 1. Complete on-chain
+      
+      // 1. Complete on-chain FIRST - this is the primary action
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Call completeProject function from the contract
       await squadTrustService.completeProject(project.blockchainProjectId);
-      // 2. Update DB
+      
+      // 2. Only after successful on-chain completion, update DB
       const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to mark as completed in DB");
+      
+      // 3. Update local state only after both operations succeed
       setProject((prev) => prev ? { ...prev, status: "HIRED" } : prev);
       setOnchainCompleteSuccess("Project marked as hired on-chain and in database!");
     } catch (e: any) {

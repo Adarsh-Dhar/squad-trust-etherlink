@@ -31,17 +31,18 @@ model User {
 }
 
 model Team {
-  id           String            @id @default(cuid())
-  name         String
-  bio          String?
-  website      String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  tags         String[]
-  credibility  CredibilityScore?
-  joinRequests JoinRequest[]
-  projects     Project[]
-  members      TeamMember[]
+  id             String            @id @default(cuid())
+  name           String
+  bio            String?
+  website        String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  tags           String[]
+  onchainTeamId  String?           @unique // Store the onchain team ID
+  credibility    CredibilityScore?
+  joinRequests   JoinRequest[]
+  projects       Project[]
+  members        TeamMember[]
 }
 
 model TeamMember {
