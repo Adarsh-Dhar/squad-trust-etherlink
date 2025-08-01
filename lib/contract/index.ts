@@ -146,7 +146,7 @@ export interface SquadTrustContract {
   // Core Functions
   createProject(name: string, minTeamStake: string): Promise<{ projectId: string; txHash: string }>;
   createTeam(name: string, members: string[]): Promise<{ teamId: string; txHash: string }>;
-  fundProject(projectId: string, amount: string): Promise<void>;
+  fundProject(projectId: string, amount: string): Promise<string>;
   applyForProject(projectId: string, teamId: string, stake: string): Promise<void>;
   hireTeam(projectId: string, teamId: string): Promise<void>;
   createMilestone(projectId: string, title: string, deadline: number, compensation: string): Promise<void>;
@@ -345,12 +345,14 @@ export class SquadTrustService {
    * Fund a project
    * @param projectId The project identifier
    * @param amount Funding amount in ETH (e.g., "1.0")
+   * @returns Transaction hash
    */
-  async fundProject(projectId: string, amount: string): Promise<void> {
+  async fundProject(projectId: string, amount: string): Promise<string> {
     try {
       const amountWei = parseEther(amount);
       const tx = await this.contract.fundProject(projectId, { value: amountWei });
       await tx.wait();
+      return tx.hash;
     } catch (error) {
       console.error('Error funding project:', error);
       throw error;

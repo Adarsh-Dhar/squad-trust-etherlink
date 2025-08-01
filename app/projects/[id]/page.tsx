@@ -586,21 +586,79 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Add funding
   const onAddFunding = async (data: any) => {
     setAddFundingLoading(true);
+    setFundingError(null);
+    
     try {
+      // 1. Check if current user is the project creator
+      if (!walletAddress) {
+        throw new Error("Please connect your wallet to fund the project.");
+      }
+      
+      if (walletAddress.toLowerCase() !== project?.creator?.toLowerCase()) {
+        throw new Error("Only the project creator can fund this project. You are not the project creator.");
+      }
+      
+      // 2. Check if blockchain project ID exists
+      if (!project?.blockchainProjectId) {
+        throw new Error("Blockchain project ID not found for this project.");
+      }
+      
+      // 3. Get signer and create service
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // 4. Verify project exists on blockchain and creator matches
+      try {
+        console.log('Verifying project on blockchain...');
+        const blockchainProject = await squadTrustService.getProject(project.blockchainProjectId);
+        console.log('Project exists on blockchain:', blockchainProject);
+        
+        // Check if the creator matches
+        if (blockchainProject.creator.toLowerCase() !== walletAddress.toLowerCase()) {
+          throw new Error(`Project creator mismatch. Blockchain creator: ${blockchainProject.creator}, Current user: ${walletAddress}`);
+        }
+        
+        console.log('Project verification passed, proceeding with funding...');
+      } catch (blockchainError: any) {
+        console.error('Project verification failed:', blockchainError);
+        throw new Error(`Project not found on blockchain or verification failed: ${blockchainError.message}`);
+      }
+      
+      // 5. Convert amount to ETH string for the contract
+      const amountInEth = data.amount.toString();
+      console.log(`Funding project ${project.blockchainProjectId} with ${amountInEth} ETH`);
+      
+      // 6. Call fundProject on-chain and get transaction hash
+      const txHash = await squadTrustService.fundProject(project.blockchainProjectId, amountInEth);
+      
+      // 7. After successful on-chain transaction, insert into database
       const res = await fetch(`/api/projects/${projectId}/funding`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          // Add blockchain transaction info
+          blockchainProjectId: project.blockchainProjectId,
+          onChainFunded: true,
+          txHash: txHash,
+        }),
       });
       const responseData = await res.json();
-      if (!res.ok) throw new Error(responseData.error || "Failed to add funding");
+      if (!res.ok) throw new Error(responseData.error || "Failed to add funding to database");
+      
+      // 8. Update local state
       setFundings((prev) => [...prev, responseData]);
       resetFunding();
       setAddFundingOpen(false);
+      
+      // 9. Show success message
+      setSuccessMsg(`Successfully funded project with ${amountInEth} ETH on-chain! Transaction: ${txHash}`);
+      
     } catch (e: any) {
+      console.error('Error in funding process:', e);
       setFundingError(e.message || "Failed to add funding");
     } finally {
       setAddFundingLoading(false);
@@ -725,6 +783,8 @@ export default function ProjectDetailsPage() {
       <div className="mb-4 p-4 bg-yellow-100 text-yellow-900 rounded text-xs">
         <div><b>Debug Info:</b></div>
         <div>Wallet Address: {walletAddress || 'Not connected'}</div>
+        <div>Project Creator: {project?.creator || 'Unknown'}</div>
+        <div>Is Project Creator: {walletAddress && project?.creator ? (walletAddress.toLowerCase() === project.creator.toLowerCase()).toString() : 'Unknown'}</div>
         <div>userDbRole: <pre>{JSON.stringify(userDbRole, null, 2)}</pre></div>
         <div>onChainUserRole: <pre>{JSON.stringify(onChainUserRole, null, 2)}</pre></div>
       </div>
@@ -1080,7 +1140,19 @@ export default function ProjectDetailsPage() {
                 <DollarSign className="w-5 h-5" />
                 Funding
               </CardTitle>
-              <Button size="sm" onClick={() => setAddFundingOpen(true)}>Create Funding</Button>
+              {walletAddress && walletAddress.toLowerCase() === project?.creator?.toLowerCase() ? (
+                <Button size="sm" onClick={() => {
+                  if (walletAddress && walletAddress.toLowerCase() === project?.creator?.toLowerCase()) {
+                    setAddFundingOpen(true);
+                  } else {
+                    setFundingError("Only the project creator can fund this project.");
+                  }
+                }}>Fund Project</Button>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  {walletAddress ? "Only the project creator can fund this project" : "Connect wallet to fund project"}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {fundingLoading ? (
@@ -1133,34 +1205,50 @@ export default function ProjectDetailsPage() {
       <UIDialog open={addFundingOpen} onOpenChange={setAddFundingOpen}>
         <UIDialogContent>
           <UIDialogHeader>
-            <UIDialogTitle>Log Funding</UIDialogTitle>
+            <UIDialogTitle>Fund Project On-Chain</UIDialogTitle>
           </UIDialogHeader>
-          <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
-            <div>
-              <Label htmlFor="funding-amount">Amount</Label>
-              <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
-              {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
+          {walletAddress && walletAddress.toLowerCase() === project?.creator?.toLowerCase() ? (
+            <form onSubmit={handleSubmitFunding(onAddFunding)} className="space-y-4">
+              <div>
+                <Label htmlFor="funding-amount">Amount (ETH)</Label>
+                <Input id="funding-amount" type="number" step="any" {...registerFunding("amount", { required: "Amount is required", valueAsNumber: true })} />
+                {fundingErrors.amount && <p className="text-sm text-destructive mt-1">{fundingErrors.amount.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="funding-currency">Currency</Label>
+                <Input id="funding-currency" defaultValue="ETH" {...registerFunding("currency", { required: "Currency is required" })} />
+                {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="funding-source">Source (Optional)</Label>
+                <Input id="funding-source" placeholder="e.g., Grant, Investment, etc." {...registerFunding("source")} />
+              </div>
+              <div>
+                <Label htmlFor="funding-txHash">Transaction Hash (Auto-filled)</Label>
+                <Input id="funding-txHash" placeholder="Will be filled after on-chain transaction" disabled {...registerFunding("txHash")} />
+              </div>
+              <UIDialogFooter className="flex gap-2">
+                <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Funding on-chain..." : "Fund Project"}</Button>
+                <UIDialogClose asChild>
+                  <Button type="button" variant="secondary">Cancel</Button>
+                </UIDialogClose>
+              </UIDialogFooter>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-destructive text-center p-4">
+                {walletAddress 
+                  ? "Only the project creator can fund this project. You are not the project creator." 
+                  : "Please connect your wallet to fund this project."
+                }
+              </div>
+              <UIDialogFooter className="flex gap-2">
+                <UIDialogClose asChild>
+                  <Button type="button" variant="secondary">Close</Button>
+                </UIDialogClose>
+              </UIDialogFooter>
             </div>
-            <div>
-              <Label htmlFor="funding-currency">Currency</Label>
-              <Input id="funding-currency" {...registerFunding("currency", { required: "Currency is required" })} />
-              {fundingErrors.currency && <p className="text-sm text-destructive mt-1">{fundingErrors.currency.message as string}</p>}
-            </div>
-            <div>
-              <Label htmlFor="funding-source">Source</Label>
-              <Input id="funding-source" {...registerFunding("source")} />
-            </div>
-            <div>
-              <Label htmlFor="funding-txHash">Transaction Hash</Label>
-              <Input id="funding-txHash" {...registerFunding("txHash")} />
-            </div>
-            <UIDialogFooter className="flex gap-2">
-              <Button type="submit" disabled={addFundingLoading || isSubmittingFunding}>{addFundingLoading ? "Logging..." : "Log"}</Button>
-              <UIDialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
-              </UIDialogClose>
-            </UIDialogFooter>
-          </form>
+          )}
         </UIDialogContent>
       </UIDialog>
 
