@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Get team members' wallet addresses
-    const teamMembers = project.team.members.map(member => member.user.walletAddress);
+    const teamMembers = project.team?.members.map(member => member.user.walletAddress) || [];
     const totalMembers = teamMembers.length;
 
     if (!project.signatures) {
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    const signatures = project.signatures.signatures as SignatureData[];
+    const signatures = (project.signatures.signatures as any) || [];
     const report = createSignatureReport(signatures, teamMembers, totalMembers);
 
     return NextResponse.json({
@@ -111,9 +111,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Check if user is a team member
-    const isTeamMember = project.team.members.some(
+    const isTeamMember = project.team?.members.some(
       member => member.user.walletAddress.toLowerCase() === walletAddress.toLowerCase()
-    );
+    ) || false;
 
     if (!isTeamMember) {
       return NextResponse.json({ error: 'Only team members can sign projects' }, { status: 403 });
@@ -127,10 +127,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Get existing signatures or create new signature record
     let existingSignatures: SignatureData[] = [];
-    let signatureRecord = project.signatures;
+    let signatureRecord = project.signatures?.[0];
 
     if (signatureRecord) {
-      existingSignatures = signatureRecord.signatures as SignatureData[];
+      existingSignatures = (signatureRecord.signatures as any) || [];
     }
 
     // Create new signature data
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Add new signature
     const updatedSignatures = [...existingSignatures, newSignature];
-    const teamMembers = project.team.members.map(member => member.user.walletAddress);
+    const teamMembers = project.team?.members.map(member => member.user.walletAddress) || [];
     const totalMembers = teamMembers.length;
     const requiredSignatures = Math.ceil(totalMembers * 0.5);
 
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await prisma.projectSignature.update({
         where: { projectId: id },
         data: {
-          signatures: updatedSignatures,
+          signatures: JSON.stringify(updatedSignatures),
           status,
           updatedAt: new Date(),
         },
@@ -171,8 +171,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await prisma.projectSignature.create({
         data: {
           projectId: id,
-          teamId: project.teamId,
-          signatures: updatedSignatures,
+          teamId: project.teamId || '',
+          signatures: JSON.stringify(updatedSignatures),
           requiredSignatures,
           totalMembers,
           status,
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (hasEnough) {
       await prisma.project.update({
         where: { id },
-        data: { status: 'COMPLETED' },
+        data: { status: 'FINISHED' },
       });
     }
 
@@ -224,7 +224,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Project or signatures not found' }, { status: 404 });
     }
 
-    const signatures = project.signatures.signatures as SignatureData[];
+    const signatures = (project.signatures?.[0]?.signatures as any) || [];
     const updatedSignatures = signatures.filter(
       sig => sig.signer.toLowerCase() !== walletAddress.toLowerCase()
     );
@@ -233,7 +233,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.projectSignature.update({
       where: { projectId: id },
       data: {
-        signatures: updatedSignatures,
+        signatures: JSON.stringify(updatedSignatures),
         status: 'PENDING', // Reset to pending since we removed a signature
         updatedAt: new Date(),
       },

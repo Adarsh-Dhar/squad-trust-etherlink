@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createSquadTrustService } from '@/lib/contract';
-import { ethers } from 'ethers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,11 +62,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, githubRepo, liveUrl, minTeamStake = "0.1" } = body;
+    const { title, description, githubRepo, liveUrl, minTeamStake = "0.1", blockchainProjectId, txHash } = body;
 
     // Validate required fields
     if (!title || !description) {
       return NextResponse.json({ error: 'Title and description are required' }, { status: 400 });
+    }
+
+    // Validate onchain data is provided
+    if (!blockchainProjectId || !txHash) {
+      return NextResponse.json({ error: 'Blockchain project ID and transaction hash are required' }, { status: 400 });
     }
 
     // Get the user
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create the project in database first (without onchain data)
+    // Create the project in database with onchain data
     const project = await prisma.project.create({
       data: {
         name: title,
@@ -105,7 +108,9 @@ export async function POST(req: NextRequest) {
         status: 'HIRING',
         creator: session.user.walletAddress.toLowerCase(),
         teamId: placeholderTeam.id,
-        // contractProjectId will be updated after onchain creation
+        blockchainProjectId: blockchainProjectId,
+        txHash: txHash,
+        minimumStake: parseFloat(minTeamStake),
       },
       include: {
         team: {
@@ -125,8 +130,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ...project,
-      message: 'Project created in database. Please complete onchain creation.',
-      needsOnchainCreation: true
+      message: 'Project created successfully with onchain data.',
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);

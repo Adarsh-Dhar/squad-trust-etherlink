@@ -23,9 +23,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (signer) {
         const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
         const squadTrustService = createSquadTrustService(contractAddress, signer);
-        // Use funding.id as milestoneId (or adapt as needed)
-        await squadTrustService.confirmMilestone(id, Number(funding.id), data.description || "Funding confirmed");
-        onchainTx = true;
+        // TODO: Implement confirmMilestone when contract supports it
+        // await squadTrustService.confirmMilestone(id, Number(funding.id), data.description || "Funding confirmed");
+        onchainTx = false; // Set to false since method is not implemented
+        onchainError = "confirmMilestone method not yet implemented in the smart contract";
       }
     } catch (err) {
       onchainError = err instanceof Error ? err.message : String(err);

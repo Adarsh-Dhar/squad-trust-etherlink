@@ -50,100 +50,72 @@ export default function CreateProjectPage() {
     setError(null);
 
     try {
-      // Step 1: Create project in database
+      // Step 1: Create project onchain first using user's wallet
+      console.log('Starting onchain creation...');
+      console.log('Wallet connected:', isConnected);
+      console.log('Wallet address:', connectedWallet);
+      
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error('Failed to get wallet signer');
+      }
+      
+      console.log('Signer obtained successfully');
+      
+      const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
+      console.log('Using contract address:', contractAddress);
+      
+      const squadTrustService = createSquadTrustService(contractAddress, signer);
+      
+      console.log('Creating project onchain:', { title: formData.title, minTeamStake: formData.minTeamStake });
+      
+      // Create project onchain first
+      const result = await squadTrustService.createProject(formData.title, formData.minTeamStake);
+      
+      console.log('Project created onchain successfully:');
+      console.log('- Project ID:', result.projectId);
+      console.log('- Transaction Hash:', result.txHash);
+      
+      // Step 2: Create project in database with onchain data
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          blockchainProjectId: result.projectId,
+          txHash: result.txHash,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create project');
+        throw new Error(errorData.error || 'Failed to create project in database');
       }
 
       const project = await response.json();
       
-      // Step 2: Create project onchain using user's wallet
-      if (project.needsOnchainCreation) {
-        try {
-          console.log('Starting onchain creation...');
-          console.log('Wallet connected:', isConnected);
-          console.log('Wallet address:', connectedWallet);
-          
-          const signer = await getSigner();
-          if (!signer) {
-            throw new Error('Failed to get wallet signer');
-          }
-          
-          console.log('Signer obtained successfully');
-          
-          const contractAddress = process.env.NEXT_PUBLIC_SQUADTRUST_CONTRACT_ADDRESS || squadtrust_address;
-          console.log('Using contract address:', contractAddress);
-          
-          const squadTrustService = createSquadTrustService(contractAddress, signer);
-          
-          console.log('Creating project onchain:', { title: formData.title, minTeamStake: formData.minTeamStake });
-          
-          // Create project onchain
-          const result = await squadTrustService.createProject(formData.title, formData.minTeamStake);
-          
-          console.log('Project created onchain successfully:');
-          console.log('- Project ID:', result.projectId);
-          console.log('- Transaction Hash:', result.txHash);
-          
-          // Step 3: Update database with onchain data
-          const updateResponse = await fetch(`/api/projects/${project.id}/onchain`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              projectId: result.projectId,
-              txHash: result.txHash,
-            }),
-          });
-
-          if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            throw new Error(errorData.error || 'Failed to update project with onchain data');
-          }
-
-          const updatedProject = await updateResponse.json();
-          
-          // Show success message with transaction hash
-          setSuccess({
-            projectId: updatedProject.id,
-            txHash: result.txHash,
-            onchainProjectId: result.projectId
-          });
-          
-          // Redirect after a short delay to show the success message
-          setTimeout(() => {
-            router.push(`/projects/${updatedProject.id}`);
-          }, 3000);
-          
-        } catch (onchainError) {
-          console.error('Error creating project onchain:', onchainError);
-          console.error('Error details:', {
-            message: onchainError instanceof Error ? onchainError.message : 'Unknown error',
-            stack: onchainError instanceof Error ? onchainError.stack : undefined,
-            name: onchainError instanceof Error ? onchainError.name : undefined
-          });
-          setError(`Project created in database but failed to create onchain: ${onchainError instanceof Error ? onchainError.message : 'Unknown error'}`);
-          // Still redirect to the project page since it was created in the database
-          setTimeout(() => {
-            router.push(`/projects/${project.id}`);
-          }, 3000);
-        }
-      } else {
-        // If no onchain creation needed, just redirect
+      // Show success message with transaction hash
+      setSuccess({
+        projectId: project.id,
+        txHash: result.txHash,
+        onchainProjectId: result.projectId
+      });
+      
+      // Redirect after a short delay to show the success message
+      setTimeout(() => {
         router.push(`/projects/${project.id}`);
-      }
+      }, 3000);
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error creating project:', err);
+      console.error('Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined,
+        name: err instanceof Error ? err.name : undefined
+      });
+      setError(err instanceof Error ? err.message : 'An error occurred while creating the project');
     } finally {
       setLoading(false);
     }

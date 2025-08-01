@@ -53,10 +53,10 @@ export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: stri
       const requiredConfirmations = 2; // Default value
       const budget = "1000"; // Default budget in ETH
       const deadline = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days from now
-      const blockchainProjectId = await squadTrustService.createProject(data.title, requiredConfirmations, budget, deadline);
+      const result = await squadTrustService.createProject(data.title, requiredConfirmations, budget, deadline);
       
-      // console.log("Blockchain project created with ID:", blockchainProjectId);
-      setBlockchainProjectId(blockchainProjectId);
+      // console.log("Blockchain project created with ID:", result.projectId);
+      setBlockchainProjectId(result.projectId);
 
       // Step 2: Create project in database with blockchain reference
       // console.log("Step 2: Creating project in database...");

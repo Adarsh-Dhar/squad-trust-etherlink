@@ -7,14 +7,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const project = await prisma.project.update({
       where: { id },
-      data: { status: 'COMPLETED' },
+      data: { status: 'HIRED' },
     });
-    return NextResponse.json({ message: `Project ${id} marked as completed.`, project });
+    return NextResponse.json({ message: `Project ${id} marked as hired.`, project });
   } catch (error: any) {
     if (error.code === 'P2025') {
       // Record not found
       return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Failed to mark project as completed.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to mark project as hired.' }, { status: 500 });
   }
 } 

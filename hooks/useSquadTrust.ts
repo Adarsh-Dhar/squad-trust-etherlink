@@ -126,8 +126,8 @@ export function useSquadTrust({ contractAddress, signer }: UseSquadTrustProps): 
     setError(null);
 
     try {
-      const projectId = await squadTrustService.createProject(name, requiredConfirmations, budget, deadline);
-      return projectId;
+      const result = await squadTrustService.createProject(name, requiredConfirmations, budget, deadline);
+      return result.projectId;
     } catch (err) {
       const errorMessage = handleContractError(err);
       setError(errorMessage);

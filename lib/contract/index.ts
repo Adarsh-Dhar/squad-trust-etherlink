@@ -106,6 +106,41 @@ export interface ProjectCompletedEvent {
   projectId: string;
 }
 
+// ========== ADDITIONAL TYPES ==========
+export interface MemberRole {
+  verified: boolean;
+  stakeAmount: string;
+}
+
+export interface ProjectRole {
+  id: string;
+  roleTitle: string;
+  description: string;
+  verified: boolean;
+}
+
+export interface Dispute {
+  id: string;
+  projectId: string;
+  target: string;
+  reason: string;
+  status: string;
+}
+
+export interface MemberStats {
+  projectsShipped: number;
+  onTimeRate: number;
+  budgetAccuracy: number;
+  abandonedProjects: number;
+  credibilityScore: number;
+}
+
+export interface PortableReputation {
+  member: string;
+  stats: MemberStats;
+  timestamp: number;
+}
+
 // ========== CONTRACT INTERFACE ==========
 export interface SquadTrustContract {
   // Core Functions
@@ -401,7 +436,7 @@ export class SquadTrustService {
   }
 
   /**
-   * Complete project
+   * Complete a project
    * @param projectId The project identifier
    */
   async completeProject(projectId: string): Promise<void> {
@@ -785,6 +820,222 @@ export class SquadTrustService {
       console.error('Error getting teams by member:', error);
       throw error;
     }
+  }
+
+  /**
+   * Withdraw stake from project (not yet implemented in contract)
+   * @param projectId The project identifier
+   */
+  async withdrawStake(projectId: string): Promise<void> {
+    throw new Error("withdrawStake method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get member role for a project (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param member Member address
+   * @returns Member role information or null
+   */
+  async getMemberRole(projectId: string, member: string): Promise<any> {
+    throw new Error("getMemberRole method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Confirm milestone (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param milestoneId The milestone identifier
+   * @param description Milestone description
+   */
+  async confirmMilestone(projectId: string, milestoneId: number, description: string): Promise<void> {
+    throw new Error("confirmMilestone method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Claim role (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param role The role to claim
+   */
+  async claimRole(projectId: string, role: string): Promise<void> {
+    throw new Error("claimRole method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Verify role (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param member The member to verify
+   */
+  async verifyRole(projectId: string, member: string): Promise<void> {
+    throw new Error("verifyRole method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Verify role by signature (not yet implemented in contract)
+   * @param member The member to verify
+   * @param projectId The project identifier
+   * @param role The role
+   * @param v Signature v component
+   * @param r Signature r component
+   * @param s Signature s component
+   */
+  async verifyRoleBySig(member: string, projectId: string, role: string, v: number, r: string, s: string): Promise<void> {
+    throw new Error("verifyRoleBySig method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Abandon project (not yet implemented in contract)
+   * @param projectId The project identifier
+   */
+  async abandonProject(projectId: string): Promise<void> {
+    throw new Error("abandonProject method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Create dispute (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param target The target of the dispute
+   * @param reason The reason for the dispute
+   */
+  async createDispute(projectId: string, target: string, reason: string): Promise<void> {
+    throw new Error("createDispute method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Vote on dispute (not yet implemented in contract)
+   * @param disputeId The dispute identifier
+   * @param voteForDisputer Whether to vote for the disputer
+   */
+  async voteOnDispute(disputeId: string, voteForDisputer: boolean): Promise<void> {
+    throw new Error("voteOnDispute method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Slash stake (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param member The member to slash
+   */
+  async slashStake(projectId: string, member: string): Promise<void> {
+    throw new Error("slashStake method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get member projects (not yet implemented in contract)
+   * @param member The member address
+   * @returns Array of project IDs
+   */
+  async getMemberProjects(member: string): Promise<string[]> {
+    throw new Error("getMemberProjects method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get project members (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @returns Array of member addresses
+   */
+  async getProjectMembers(projectId: string): Promise<string[]> {
+    throw new Error("getProjectMembers method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get credibility score (not yet implemented in contract)
+   * @param member The member address
+   * @returns Credibility score
+   */
+  async getCredibilityScore(member: string): Promise<number> {
+    throw new Error("getCredibilityScore method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get milestone (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @param milestoneId The milestone identifier
+   * @returns Milestone data
+   */
+  async getMilestone(projectId: string, milestoneId: number): Promise<any> {
+    throw new Error("getMilestone method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get project roles (not yet implemented in contract)
+   * @param projectId The project identifier
+   * @returns Array of project roles
+   */
+  async getProjectRoles(projectId: string): Promise<any[]> {
+    throw new Error("getProjectRoles method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get dispute (not yet implemented in contract)
+   * @param disputeId The dispute identifier
+   * @returns Dispute data
+   */
+  async getDispute(disputeId: string): Promise<any> {
+    throw new Error("getDispute method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get member stats (not yet implemented in contract)
+   * @param member The member address
+   * @returns Member statistics
+   */
+  async getMemberStats(member: string): Promise<any> {
+    throw new Error("getMemberStats method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get portable reputation (not yet implemented in contract)
+   * @param member The member address
+   * @returns Portable reputation data
+   */
+  async getPortableReputation(member: string): Promise<any> {
+    throw new Error("getPortableReputation method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get minimum stake (not yet implemented in contract)
+   * @returns Minimum stake amount
+   */
+  async getMinStake(): Promise<string> {
+    throw new Error("getMinStake method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get reputation threshold (not yet implemented in contract)
+   * @returns Reputation threshold
+   */
+  async getReputationThreshold(): Promise<number> {
+    throw new Error("getReputationThreshold method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get disputer reward percentage (not yet implemented in contract)
+   * @returns Disputer reward percentage
+   */
+  async getDisputerRewardPercentage(): Promise<number> {
+    throw new Error("getDisputerRewardPercentage method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get time decay period (not yet implemented in contract)
+   * @returns Time decay period
+   */
+  async getTimeDecayPeriod(): Promise<number> {
+    throw new Error("getTimeDecayPeriod method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get project count (not yet implemented in contract)
+   * @returns Project count
+   */
+  async getProjectCount(): Promise<number> {
+    throw new Error("getProjectCount method not yet implemented in the smart contract");
+  }
+
+  /**
+   * Get dispute count (not yet implemented in contract)
+   * @returns Dispute count
+   */
+  async getDisputeCount(): Promise<number> {
+    throw new Error("getDisputeCount method not yet implemented in the smart contract");
   }
 }
 

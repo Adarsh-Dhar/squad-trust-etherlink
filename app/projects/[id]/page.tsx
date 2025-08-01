@@ -658,8 +658,9 @@ export default function ProjectDetailsPage() {
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      await squadTrustService.withdrawStake(project.blockchainProjectId);
-      setWithdrawSuccess("Stake withdrawn successfully!");
+      // TODO: Implement withdrawStake when contract supports it
+      // await squadTrustService.withdrawStake(project.blockchainProjectId);
+      setWithdrawSuccess("Stake withdrawal not yet implemented in contract");
     } catch (e: any) {
       setWithdrawError(e.message || "Failed to withdraw stake");
     } finally {
@@ -683,12 +684,16 @@ export default function ProjectDetailsPage() {
         const signer = await getSigner();
         if (!signer) return;
         const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-        const role = await squadTrustService.getMemberRole(projectId, walletAddress);
-        if (role) {
-          setOnChainUserRole({ verified: role.verified || false, stakeAmount: role.stakeAmount || "0" });
-        } else {
-          setOnChainUserRole(null);
-        }
+        // TODO: Implement getMemberRole when contract supports it
+        // const role = await squadTrustService.getMemberRole(projectId, walletAddress);
+        // if (role) {
+        //   setOnChainUserRole({ verified: role.verified || false, stakeAmount: role.stakeAmount || "0" });
+        // } else {
+        //   setOnChainUserRole(null);
+        // }
+        
+        // For now, set default values since the method doesn't exist
+        setOnChainUserRole({ verified: false, stakeAmount: "0" });
       } catch {
         setOnChainUserRole(null);
       }
