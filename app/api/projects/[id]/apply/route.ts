@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createSquadTrustService, getSigner } from '@/lib/contract';
 
 export async function POST(
   req: NextRequest,
@@ -49,10 +50,23 @@ export async function POST(
     // Get the user
     const user = await prisma.user.findUnique({
       where: { walletAddress: session.user.walletAddress.toLowerCase() },
+      include: {
+        teams: {
+          include: {
+            team: true,
+          },
+        },
+      },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get user's team
+    const userTeam = user.teams.find(teamMember => teamMember.role === 'ADMIN');
+    if (!userTeam) {
+      return NextResponse.json({ error: 'You must be a team admin to apply for projects' }, { status: 400 });
     }
 
     // Check if project exists and is hiring
@@ -68,7 +82,7 @@ export async function POST(
       return NextResponse.json({ error: 'Project is not currently hiring' }, { status: 400 });
     }
 
-    // Check if user has already applied
+    // Check if user has already applied in database
     const existingApplication = await prisma.application.findFirst({
       where: {
         projectId,
@@ -80,14 +94,39 @@ export async function POST(
       return NextResponse.json({ error: 'You have already applied to this project' }, { status: 400 });
     }
 
-    // Get user's team score (you can implement your own scoring logic here)
+    // Verify onchain application exists (optional - since we're calling this after onchain tx)
+    try {
+      const signer = await getSigner();
+      if (signer && session.user.walletAddress) {
+        const squadTrustService = createSquadTrustService(process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '', signer);
+        const onchainApplications = await squadTrustService.getProjectApplications(projectId);
+        
+        // Check if this team has already applied on-chain
+        const teamId = userTeam.team.onchainTeamId || userTeam.team.id;
+        const hasAppliedOnchain = onchainApplications.some((app: any) => 
+          app.teamId === teamId && app.applicant.toLowerCase() === session.user.walletAddress!.toLowerCase()
+        );
+        
+        if (!hasAppliedOnchain) {
+          return NextResponse.json({ 
+            error: 'On-chain application not found. Please complete the on-chain transaction first.' 
+          }, { status: 400 });
+        }
+      }
+    } catch (error) {
+      console.error('Error verifying onchain application:', error);
+      // Continue with database creation even if onchain verification fails
+      // This allows for cases where the onchain transaction succeeded but verification failed
+    }
+
+    // Get user's team score
     const userScoreData = await prisma.userScoreData.findUnique({
       where: { userId: user.id },
     });
 
     const teamScore = userScoreData?.credibilityScore || 0.0;
 
-    // Create the application
+    // Create the application in database
     const application = await prisma.application.create({
       data: {
         projectId,
@@ -98,6 +137,7 @@ export async function POST(
         teamExperience: teamExperience || null,
         deadline: deadlineDate,
         teamScore,
+        teamId: userTeam.team.id, // Store the team ID
       },
       include: {
         applicant: true,
@@ -135,7 +175,13 @@ export async function GET(
           include: {
             teams: {
               include: {
-                team: true,
+                team: {
+                  select: {
+                    id: true,
+                    name: true,
+                    onchainTeamId: true,
+                  },
+                },
               },
             },
           },

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Filter, Plus } from "lucide-react"
+import { Search, Filter, Plus, Send } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { CreateProjectForm } from "@/components/create-project-form";
@@ -460,6 +460,16 @@ function renderTeamCard(team: any, idx: number, {
               </Button>
             ) : (
               <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  asChild
+                >
+                  <Link href={`/teams/my-team/${team.id}/apply-projects`}>
+                    <Send className="w-4 h-4 mr-1" />
+                    Apply for Projects
+                  </Link>
+                </Button>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="default">Create Project</Button>

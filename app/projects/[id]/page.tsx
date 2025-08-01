@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { MilestoneForm } from "@/components/milestones/MilestoneForm";
 import { MilestoneCard } from "@/components/milestones/MilestoneCard";
-import { getSigner, createSquadTrustService, ProjectCreationService } from "@/lib/contract";
+import { getSigner, createSquadTrustService, ProjectCreationService, isValidAddress } from "@/lib/contract";
 import { squadtrust_address as CONTRACT_ADDRESS } from "@/lib/contract/address";
 import { useWallet } from "@/hooks/useWallet";
 
@@ -73,6 +73,7 @@ interface Application {
       team: {
         id: string;
         name: string;
+        onchainTeamId?: string;
       };
     }[];
   };
@@ -337,14 +338,88 @@ export default function ProjectDetailsPage() {
     setAcceptingApplicationId(applicationId);
     setApplicationActionError(null);
     try {
+      // Check if user is connected
+      if (!walletAddress) {
+        throw new Error("Please connect your wallet to accept applications");
+      }
+
+      // Check if user is the project creator
+      if (walletAddress.toLowerCase() !== project?.creator?.toLowerCase()) {
+        throw new Error("Only the project creator can accept applications");
+      }
+
+      // Find the application to get team ID
+      const application = applications.find(app => app.id === applicationId);
+      if (!application) {
+        throw new Error("Application not found");
+      }
+
+      const teamId = application.applicant.teams?.[0]?.team?.id;
+      if (!teamId) {
+        throw new Error("Team ID not found for this application");
+      }
+
+      const onchainTeamId = application.applicant.teams?.[0]?.team?.onchainTeamId;
+      console.log('Team data:', application.applicant.teams?.[0]?.team);
+      console.log('Database team ID:', teamId);
+      console.log('Onchain team ID:', onchainTeamId);
+      
+      if (!onchainTeamId) {
+        throw new Error("Blockchain team ID not found for this application. The team may not be registered on-chain. Please ensure the team has been created on the blockchain first.");
+      }
+
+      // Validate that onchainTeamId is a valid blockchain address
+      if (!isValidAddress(onchainTeamId)) {
+        throw new Error("Invalid blockchain team ID format. Expected a valid Ethereum address.");
+      }
+
+      // Check if project has blockchain ID
+      if (!project?.blockchainProjectId) {
+        throw new Error("Blockchain project ID not found for this project");
+      }
+
+      // Check if project is in HIRING status
+      if (project.status !== "HIRING") {
+        throw new Error("Project is not in HIRING status. Cannot accept applications.");
+      }
+
+      // 1. First, call hireTeam on-chain
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Verify team exists on-chain before hiring
+      try {
+        console.log(`Verifying team ${onchainTeamId} exists on-chain...`);
+        const teamOnChain = await squadTrustService.getTeam(onchainTeamId);
+        console.log('Team on-chain data:', teamOnChain);
+        
+        if (!teamOnChain.exists) {
+          throw new Error("Team does not exist on-chain. Cannot hire this team.");
+        }
+        
+        console.log(`Team ${onchainTeamId} verified on-chain successfully`);
+      } catch (teamError: any) {
+        console.error('Error verifying team on-chain:', teamError);
+        if (teamError.message.includes('invalid BytesLike value')) {
+          throw new Error(`Invalid team ID format: ${onchainTeamId}. Expected a valid blockchain address.`);
+        }
+        throw new Error(`Failed to verify team on-chain: ${teamError.message}`);
+      }
+      
+      console.log(`Hiring team ${onchainTeamId} for project ${project.blockchainProjectId} on-chain...`);
+      await squadTrustService.hireTeam(project.blockchainProjectId, onchainTeamId);
+      console.log('Team hired successfully on-chain');
+      
+      // 2. Only after successful on-chain transaction, update database
       const res = await fetch(`/api/projects/${projectId}/apply/${applicationId}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to accept application");
+      if (!res.ok) throw new Error(data.error || "Failed to accept application in database");
       
-      // Refresh project and applications data
+      // 3. Refresh project and applications data
       const projectRes = await fetch(`/api/projects/${projectId}`);
       const projectData = await projectRes.json();
       if (projectRes.ok) {
@@ -357,7 +432,12 @@ export default function ProjectDetailsPage() {
       if (applicationsRes.ok) {
         setApplications(applicationsData);
       }
+
+      setSuccessMsg(`Team ${onchainTeamId} hired successfully on-chain and application accepted!`);
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMsg(null), 5000);
     } catch (e: any) {
+      console.error('Error accepting application:', e);
       setApplicationActionError(e.message || "Failed to accept application");
     } finally {
       setAcceptingApplicationId(null);
@@ -1176,16 +1256,22 @@ export default function ProjectDetailsPage() {
                         <Badge variant={application.status === "ACCEPTED" ? "default" : application.status === "REJECTED" ? "destructive" : "secondary"}>
                           {application.status}
                         </Badge>
-                        {application.status === "PENDING" && (
+                        {application.status === "PENDING" && project?.status === "HIRING" && (
                           <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleAcceptApplication(application.id)}
-                              disabled={acceptingApplicationId === application.id || rejectingApplicationId === application.id}
-                            >
-                              {acceptingApplicationId === application.id ? "Accepting..." : "Accept"}
-                            </Button>
+                            {walletAddress && walletAddress.toLowerCase() === project?.creator?.toLowerCase() ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleAcceptApplication(application.id)}
+                                disabled={acceptingApplicationId === application.id || rejectingApplicationId === application.id}
+                              >
+                                {acceptingApplicationId === application.id ? "Hiring on-chain..." : "Accept"}
+                              </Button>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">
+                                {walletAddress ? "Only project creator can accept" : "Connect wallet to accept"}
+                              </div>
+                            )}
                             <Button 
                               size="sm" 
                               variant="destructive"

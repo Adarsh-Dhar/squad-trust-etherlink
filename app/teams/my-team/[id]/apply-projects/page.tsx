@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, Users, GitBranch, ExternalLink, Clock, CheckCircle, AlertCircle, XCircle, Plus, FolderOpen, Send, X } from 'lucide-react';
+import { Calendar, Users, GitBranch, ExternalLink, Clock, CheckCircle, AlertCircle, XCircle, Plus, FolderOpen, Send, X, ArrowLeft } from 'lucide-react';
+import { createSquadTrustService, getSigner } from '@/lib/contract';
+import { ethers } from 'ethers';
+import { squadtrust_address } from '@/lib/contract/address';
+import { useParams } from 'next/navigation';
 
 interface Project {
   id: string;
@@ -42,10 +46,22 @@ interface Project {
       walletAddress: string;
     };
   }>;
+  blockchainProjectId?: string;
 }
 
-export default function AllProjectsPage() {
+interface Team {
+  id: string;
+  name: string;
+  bio?: string;
+  onchainTeamId?: string;
+}
+
+export default function ApplyProjectsPage() {
+  const params = useParams();
+  const teamId = params.id as string;
+  
   const [projects, setProjects] = useState<Project[]>([]);
+  const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -61,8 +77,24 @@ export default function AllProjectsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchTeam();
     fetchProjects();
-  }, [statusFilter]);
+  }, [teamId, statusFilter]);
+
+  const fetchTeam = async () => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}`);
+      if (response.ok) {
+        const teamData = await response.json();
+        setTeam(teamData);
+      } else {
+        throw new Error('Failed to fetch team');
+      }
+    } catch (error) {
+      console.error('Error fetching team:', error);
+      setError('Failed to load team information');
+    }
+  };
 
   const fetchProjects = async () => {
     try {
@@ -78,7 +110,9 @@ export default function AllProjectsPage() {
       }
       
       const data = await response.json();
-      setProjects(data);
+      // Filter out projects created by this team
+      const filteredProjects = data.filter((project: Project) => project.team.id !== teamId);
+      setProjects(filteredProjects);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -86,16 +120,96 @@ export default function AllProjectsPage() {
     }
   };
 
+  const getApplicationStatus = (project: Project) => {
+    if (!team) return 'Loading Team Info';
+    if (!project.blockchainProjectId) return 'Project Not On-Chain';
+    if (!team.onchainTeamId) return 'Create Team On-Chain';
+    return 'Apply for Project';
+  };
+
+  const isApplicationReady = (project: Project) => {
+    return project.status === 'HIRING' && 
+           team && 
+           project.blockchainProjectId && 
+           team.onchainTeamId;
+  };
+
   const handleApply = (project: Project) => {
+    if (!team) {
+      alert('Team information not loaded. Please try again.');
+      return;
+    }
+    
+    if (!project.blockchainProjectId) {
+      alert('This project has not been created on-chain yet. Please wait for the project to be fully initialized.');
+      return;
+    }
+    
+    if (!team.onchainTeamId) {
+      alert('Your team has not been created on-chain yet. Please create your team on-chain first.');
+      return;
+    }
+    
     setSelectedProject(project);
     setShowApplyDialog(true);
   };
 
   const handleSubmitApplication = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !team) {
+      alert('Please ensure you have a team before applying.');
+      return;
+    }
 
     try {
       setSubmitting(true);
+
+      // Step 1: Call the onchain applyForProject transaction
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error('No wallet connected. Please connect your wallet first.');
+      }
+
+      // Check user's balance before attempting transaction
+      const balance = await signer.provider?.getBalance(await signer.getAddress());
+      const stakeAmount = parseFloat(applicationData.proposedStake);
+      const stakeWei = ethers.parseEther(stakeAmount.toString());
+      
+      if (balance && balance < stakeWei) {
+        throw new Error(`Insufficient funds. You need at least ${applicationData.proposedStake} ETH to apply. Your balance: ${ethers.formatEther(balance)} ETH`);
+      }
+
+      // Use the correct contract address
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || squadtrust_address;
+      const squadTrustService = createSquadTrustService(contractAddress, signer);
+      
+      // Use blockchain IDs instead of database IDs
+      const blockchainProjectId = selectedProject.blockchainProjectId;
+      const onchainTeamId = team.onchainTeamId;
+      
+      if (!blockchainProjectId) {
+        throw new Error('This project has not been created on-chain yet. Please wait for the project to be fully initialized.');
+      }
+      
+      if (!onchainTeamId) {
+        throw new Error('Your team has not been created on-chain yet. Please create your team on-chain first.');
+      }
+      
+      console.log('Submitting onchain application:', {
+        projectId: blockchainProjectId,
+        teamId: onchainTeamId,
+        stake: applicationData.proposedStake
+      });
+      
+      // Call the onchain applyForProject function
+      await squadTrustService.applyForProject(
+        blockchainProjectId,
+        onchainTeamId,
+        applicationData.proposedStake
+      );
+
+      console.log('Onchain transaction successful, now submitting to database...');
+
+      // Step 2: Only after successful onchain transaction, add to database
       const response = await fetch(`/api/projects/${selectedProject.id}/apply`, {
         method: 'POST',
         headers: {
@@ -111,7 +225,8 @@ export default function AllProjectsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit application');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit application to database');
       }
 
       // Reset form and close dialog
@@ -125,11 +240,27 @@ export default function AllProjectsPage() {
       setShowApplyDialog(false);
       setSelectedProject(null);
       
-      // Show success message (you can add a toast notification here)
-      alert('Application submitted successfully!');
+      // Show success message
+      alert('Application submitted successfully! Your stake has been locked on-chain.');
     } catch (err) {
       console.error('Error submitting application:', err);
-      alert('Failed to submit application. Please try again.');
+      let errorMessage = 'Failed to submit application. Please try again.';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('No wallet connected')) {
+          errorMessage = 'Please connect your wallet first.';
+        } else if (err.message.includes('Insufficient funds')) {
+          errorMessage = err.message;
+        } else if (err.message.includes('user rejected')) {
+          errorMessage = 'Transaction was cancelled by the user.';
+        } else if (err.message.includes('not been created on-chain')) {
+          errorMessage = err.message;
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      alert(`Error: ${errorMessage}`);
     } finally {
       setSubmitting(false);
     }
@@ -218,8 +349,21 @@ export default function AllProjectsPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">All Projects</h1>
-          <p className="text-gray-600 text-lg">Browse all projects across the platform</p>
+          <div className="flex items-center gap-4 mb-4">
+            <Link
+              href={`/teams/my-team/${teamId}`}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Team
+            </Link>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Apply for Projects
+          </h1>
+          <p className="text-gray-600 text-lg">
+            {team ? `Browse available projects for ${team.name}` : 'Browse all projects across the platform'}
+          </p>
         </div>
 
         {/* Filters */}
@@ -242,7 +386,7 @@ export default function AllProjectsPage() {
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
             }`}
           >
-            Ongoing
+            Hiring
           </button>
           <button
             onClick={() => setStatusFilter('FINISHED')}
@@ -262,7 +406,7 @@ export default function AllProjectsPage() {
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
             }`}
           >
-            Failed
+            In Progress
           </button>
         </div>
 
@@ -379,34 +523,22 @@ export default function AllProjectsPage() {
                   {/* Apply Button */}
                   <button
                     onClick={() => handleApply(project)}
-                    disabled={project.status !== 'HIRING'}
+                    disabled={!isApplicationReady(project)}
                     className={`w-full mt-4 px-4 py-2 rounded-lg transition-colors text-center font-medium flex items-center justify-center gap-2 ${
-                      project.status === 'HIRING'
+                      isApplicationReady(project)
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
                     <Send className="w-4 h-4" />
-                    {project.status === 'HIRING' ? 'Apply for Project' : 'Not Hiring'}
+                    {project.status === 'HIRING' 
+                      ? getApplicationStatus(project)
+                      : 'Not Hiring'
+                    }
                   </button>
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Load More Button */}
-        {projects.length >= 50 && (
-          <div className="text-center mt-8">
-            <button
-              onClick={() => {
-                // Implement pagination
-                console.log('Load more projects');
-              }}
-              className="px-6 py-3 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium"
-            >
-              Load More Projects
-            </button>
           </div>
         )}
       </div>
@@ -538,4 +670,4 @@ export default function AllProjectsPage() {
       )}
     </div>
   );
-}
+} 

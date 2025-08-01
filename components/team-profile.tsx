@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut, TrendingUp, Plus } from "lucide-react"
+import { Calendar, CheckCircle, Clock, DollarSign, Award, Users, FolderOpen, LogOut, TrendingUp, Plus, Send } from "lucide-react"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -637,8 +637,11 @@ export function TeamProfile({ teamId }: { teamId: string }) {
   }
 
   const calculateTotalFunding = (projects: Project[]) => {
+    if (!projects || !Array.isArray(projects)) {
+      return 0;
+    }
     return projects.reduce((total, project) => {
-      const projectFunding = (project.funding || []).reduce((sum: number, fund: any) => sum + fund.amount, 0);
+      const projectFunding = (project.funding || []).reduce((sum: number, fund: any) => sum + (fund.amount || 0), 0);
       return total + projectFunding;
     }, 0);
   };
@@ -668,7 +671,7 @@ export function TeamProfile({ teamId }: { teamId: string }) {
     );
   }
 
-  const totalFunding = calculateTotalFunding(team.projects);
+  const totalFunding = calculateTotalFunding(team.projects || []);
   const trustScore = team.credibility?.score || 0;
   const isMember = isCurrentUserMember();
   const userRole = getCurrentUserRole();
@@ -838,6 +841,18 @@ export function TeamProfile({ teamId }: { teamId: string }) {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold">Projects</h2>
             <div className="flex gap-2">
+              {/* Apply for Projects button */}
+              {isMember && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    router.push(`/teams/my-team/${teamId}/apply-projects`);
+                  }}
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Apply for Projects
+                </Button>
+              )}
               {/* Create Project button */}
               {isMember && (
                 <Button 
