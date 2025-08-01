@@ -79,7 +79,73 @@ export default function ApplyProjectsPage() {
   useEffect(() => {
     fetchTeam();
     fetchProjects();
+    logTeamData();
   }, [teamId, statusFilter]);
+
+  const logTeamData = async () => {
+    try {
+      const signer = await getSigner();
+      if (!signer) {
+        console.log('No wallet connected, skipping getTeam() logging');
+        return;
+      }
+
+      // First, get the team data from the database to get the onchainTeamId
+      const teamResponse = await fetch(`/api/teams/${teamId}`);
+      if (!teamResponse.ok) {
+        console.log('Failed to fetch team data from database');
+        return;
+      }
+      
+      const teamData = await teamResponse.json();
+      console.log('Database Team Data:', teamData);
+      
+      if (!teamData.onchainTeamId) {
+        console.log('Team does not have an onchain ID yet. Cannot call getTeam() on smart contract.');
+        return;
+      }
+
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || squadtrust_address;
+      const squadTrustService = createSquadTrustService(contractAddress, signer);
+      
+      console.log('=== getTeam() LOGGING ===');
+      console.log('Database Team ID:', teamId);
+      console.log('Onchain Team ID (hash):', teamData.onchainTeamId);
+      console.log('Contract Address:', contractAddress);
+      
+      // Try to get teams count first to understand the range
+      try {
+        const teamsCount = await squadTrustService.getTeamsCount();
+        console.log('Total teams on contract:', teamsCount);
+        
+        // Try with team ID 1 first (most likely to exist)
+        console.log('Trying to get team with ID: 1');
+        const onchainTeamData = await squadTrustService.getTeam("1");
+        console.log('getTeam() Result for team 1:', onchainTeamData);
+        console.log('Team Leader:', onchainTeamData.leader);
+        console.log('Team Name:', onchainTeamData.name);
+        console.log('Team Members:', onchainTeamData.members);
+        console.log('Staked Amount:', onchainTeamData.stakedAmount);
+        console.log('Hired Status:', onchainTeamData.hired);
+        console.log('Exists:', onchainTeamData.exists);
+      } catch (teamError) {
+        console.log('Error getting team 1:', teamError);
+        
+        // Try with the hash as a string
+        try {
+          console.log('Trying to get team with hash ID:', teamData.onchainTeamId);
+          const onchainTeamData = await squadTrustService.getTeam(teamData.onchainTeamId);
+          console.log('getTeam() Result with hash:', onchainTeamData);
+        } catch (hashError) {
+          console.log('Error getting team with hash:', hashError);
+        }
+      }
+      
+      console.log('=== END getTeam() LOGGING ===');
+    } catch (error) {
+      console.error('Error in getTeam() logging:', error);
+    }
+  };
 
   const fetchTeam = async () => {
     try {

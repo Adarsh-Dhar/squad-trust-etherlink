@@ -507,11 +507,26 @@ export class SquadTrustService {
   async getTeam(teamId: string): Promise<Team> {
     try {
       const result = await this.contract.teams(teamId);
+      console.log('Raw team result from contract:', result);
+      
+      // Check if result[3] is a valid BigNumber before formatting
+      let stakedAmount = "0";
+      try {
+        if (result[3] && typeof result[3] === 'object' && result[3]._isBigNumber) {
+          stakedAmount = formatEther(result[3]);
+        } else if (typeof result[3] === 'string' || typeof result[3] === 'number') {
+          stakedAmount = formatEther(result[3].toString());
+        }
+      } catch (formatError) {
+        console.warn('Could not format staked amount:', result[3], formatError);
+        stakedAmount = "0";
+      }
+      
       return {
         leader: result[0],
         name: result[1],
         members: result[2],
-        stakedAmount: formatEther(result[3]),
+        stakedAmount: stakedAmount,
         hired: result[4],
         exists: result[5]
       };
