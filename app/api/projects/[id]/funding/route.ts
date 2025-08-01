@@ -8,12 +8,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
     const data = await req.json();
+    
+    // Extract only the valid fields for the Funding model
+    const { blockchainProjectId, onChainFunded, ...validFundingData } = data;
+    
     const funding = await prisma.funding.create({
       data: {
-        ...data,
+        ...validFundingData,
         projectId: id,
+        source: validFundingData.source || 'blockchain',
+        currency: validFundingData.currency || 'ETH',
       },
     });
+
+    // Update the project's blockchainProjectId if provided
+    if (blockchainProjectId) {
+      await prisma.project.update({
+        where: { id },
+        data: {
+          blockchainProjectId: blockchainProjectId,
+        },
+      });
+    }
 
     // Onchain confirmMilestone call (optional, only if wallet/signer is available)
     let onchainTx = null;
@@ -34,8 +50,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       console.error('Onchain confirmMilestone failed:', onchainError);
     }
 
-    return NextResponse.json({ ...funding, onchainTx, onchainError });
+    return NextResponse.json({ 
+      ...funding, 
+      onchainTx, 
+      onchainError,
+      blockchainProjectId, // Return the blockchainProjectId for frontend reference
+      onChainFunded // Return the onChainFunded flag for frontend reference
+    });
   } catch (error) {
+    console.error('Funding API error:', error);
     return NextResponse.json({ error: 'Failed to log funding.' }, { status: 500 });
   }
 }

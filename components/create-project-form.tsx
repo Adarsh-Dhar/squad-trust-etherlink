@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { Wallet, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { getSigner, createSquadTrustService, ProjectCreationService } from "@/lib/contract";
 import { squadtrust_address } from '@/lib/contract/address';
 
 export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: string, redirectToProjects?: boolean }) {
@@ -37,30 +37,30 @@ export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: stri
     }
     
     try {
-      // Step 1: Execute blockchain transaction first
-      // console.log("Step 1: Creating project on blockchain...");
-      
-      // Get signer from connected wallet
+      // Step 1: Get signer from connected wallet
       const signer = await getSigner();
       if (!signer) {
         throw new Error("Failed to get wallet signer. Please ensure MetaMask is connected.");
       }
 
-      // Create SquadTrust service
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
-      
-      // Create project on blockchain
-      const requiredConfirmations = 2; // Default value
-      const budget = "1000"; // Default budget in ETH
-      const deadline = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days from now
-      const result = await squadTrustService.createProject(data.title, requiredConfirmations, budget, deadline);
-      
-      // console.log("Blockchain project created with ID:", result.projectId);
+      console.log("Creating project with wallet:", address);
+
+      // Step 2: Create project service with validation
+      const projectService = new ProjectCreationService(CONTRACT_ADDRESS, signer);
+
+      // Step 3: Create project with full validation
+      console.log("Creating project with validation...");
+      const result = await projectService.createProjectWithValidation(
+        data.title,
+        data.minTeamStake || "0.1",
+        address
+      );
+
+      console.log("Project created successfully:", result);
       setBlockchainProjectId(result.projectId);
 
-      // Step 2: Create project in database with blockchain reference
-      // console.log("Step 2: Creating project in database...");
-      
+      // Step 4: Create project in database with validated blockchain data
+      console.log("Creating project in database...");
       const res = await fetch(`/api/teams/${teamId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,26 +70,33 @@ export function CreateProjectForm({ teamId, redirectToProjects }: { teamId: stri
           githubRepo: data.githubRepo,
           liveUrl: data.liveUrl,
           walletAddress: address,
-          requiredConfirmations: requiredConfirmations,
-          blockchainProjectId: blockchainProjectId, // Pass the blockchain project ID
+          blockchainProjectId: result.projectId,
+          txHash: result.txHash,
+          projectData: result.projectData
         }),
       });
-      
-      const responseData = await res.json();
+
       if (!res.ok) {
-        throw new Error(responseData.error || "Failed to create project in database");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to create project in database");
       }
-      
+
+      const project = await res.json();
+      console.log("Project created in database:", project);
+
       setSuccess(true);
       reset();
-      
+
+      // Show success message
+      alert(`Project created successfully!\nTransaction: ${result.txHash}\nProject ID: ${result.projectId}`);
+
       if (redirectToProjects) {
         router.push("/projects");
       }
-      // Optionally, trigger a refresh of the project list here
+
     } catch (err: any) {
-      console.error("Error creating project:", err);
-      setSubmitError(err.message || "Something went wrong");
+      console.error("Project creation failed:", err);
+      setSubmitError(err.message || "Failed to create project");
     }
   };
 

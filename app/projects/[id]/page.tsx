@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { MilestoneForm } from "@/components/milestones/MilestoneForm";
 import { MilestoneCard } from "@/components/milestones/MilestoneCard";
-import { getSigner, createSquadTrustService } from "@/lib/contract";
+import { getSigner, createSquadTrustService, ProjectCreationService } from "@/lib/contract";
 import { squadtrust_address as CONTRACT_ADDRESS } from "@/lib/contract/address";
 import { useWallet } from "@/hooks/useWallet";
 
@@ -773,6 +773,116 @@ export default function ProjectDetailsPage() {
   // Show button if on-chain role is verified and has positive stake
   const showWithdrawStake = !!userDbRole && onChainUserRole && onChainUserRole.verified && Number(onChainUserRole.stakeAmount) > 0;
 
+  // Log the number of projects on-chain when the page mounts
+  useEffect(() => {
+    async function logProjectsCount() {
+      try {
+        const signer = await getSigner();
+        if (!signer) {
+          console.log('No wallet connected, skipping getProjectsCount');
+          return;
+        }
+        const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+        const count = await squadTrustService.getProjectsCount();
+        console.log('On-chain projects count:', count);
+      } catch (err) {
+        console.error('Error getting on-chain projects count:', err);
+      }
+    }
+    logProjectsCount();
+  }, []);
+
+  // Blockchain validation state
+  const [blockchainValidation, setBlockchainValidation] = useState<{
+    valid: boolean;
+    projectData?: any;
+    error?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const validateProjectOnLoad = async () => {
+      if (!projectId || !project || !project.blockchainProjectId) return;
+
+      setBlockchainValidation({ valid: false, error: "Validating..." });
+      try {
+        const signer = await getSigner();
+        if (!signer) {
+          throw new Error("Please connect your wallet to validate the project on-chain.");
+        }
+        const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+
+        const projectOnChain = await squadTrustService.getProject(project.blockchainProjectId);
+        setBlockchainValidation({
+          valid: true,
+          projectData: projectOnChain,
+        });
+      } catch (e: any) {
+        setBlockchainValidation({
+          valid: false,
+          error: e.message || "Failed to validate project on-chain.",
+        });
+      }
+    };
+
+    validateProjectOnLoad();
+  }, [projectId, project]);
+
+  // Run diagnostics on page load
+  useEffect(() => {
+    runContractDiagnostics();
+  }, []);
+
+  // Add comprehensive diagnostic function
+  const runContractDiagnostics = async () => {
+    console.log("=== CONTRACT DIAGNOSTICS ===");
+    
+    try {
+      const signer = await getSigner();
+      if (!signer) {
+        console.log("❌ No signer available");
+        return;
+      }
+      
+      console.log("✅ Signer available:", await signer.getAddress());
+      
+      // Check contract deployment
+      const contractAddress = CONTRACT_ADDRESS;
+      console.log("📋 Contract address:", contractAddress);
+      
+      // Check if contract exists
+      const code = await signer.provider?.getCode(contractAddress);
+      console.log("📦 Contract code exists:", code !== "0x");
+      
+      if (code === "0x") {
+        console.log("❌ CONTRACT NOT DEPLOYED AT THIS ADDRESS!");
+        return;
+      }
+      
+      // Test basic contract functions
+      const squadTrustService = createSquadTrustService(contractAddress, signer);
+      
+      try {
+        const projectCount = await squadTrustService.getProjectsCount();
+        console.log("📊 Projects count:", projectCount.toString());
+      } catch (e: any) {
+        console.log("❌ getProjectsCount failed:", e.message);
+      }
+      
+      // Check if current project exists on blockchain
+      if (project?.blockchainProjectId) {
+        try {
+          const projectOnChain = await squadTrustService.getProject(project.blockchainProjectId);
+          console.log("✅ Project exists on blockchain:", projectOnChain);
+        } catch (e: any) {
+          console.log("❌ Project not found on blockchain:", e.message);
+        }
+      }
+      
+    } catch (e: any) {
+      console.log("❌ Diagnostic failed:", e.message);
+    }
+  };
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading project...</div>;
   if (error) return <div className="flex min-h-screen items-center justify-center text-destructive">{error}</div>;
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
@@ -781,12 +891,23 @@ export default function ProjectDetailsPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* DEBUG INFO */}
       <div className="mb-4 p-4 bg-yellow-100 text-yellow-900 rounded text-xs">
-        <div><b>Debug Info:</b></div>
+        <div className="flex justify-between items-center mb-2">
+          <div><b>Debug Info:</b></div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={runContractDiagnostics}
+            className="text-xs h-6 px-2"
+          >
+            Run Diagnostics
+          </Button>
+        </div>
         <div>Wallet Address: {walletAddress || 'Not connected'}</div>
         <div>Project Creator: {project?.creator || 'Unknown'}</div>
         <div>Is Project Creator: {walletAddress && project?.creator ? (walletAddress.toLowerCase() === project.creator.toLowerCase()).toString() : 'Unknown'}</div>
         <div>userDbRole: <pre>{JSON.stringify(userDbRole, null, 2)}</pre></div>
         <div>onChainUserRole: <pre>{JSON.stringify(onChainUserRole, null, 2)}</pre></div>
+        <div>Blockchain Validation: <pre>{JSON.stringify(blockchainValidation, null, 2)}</pre></div>
       </div>
       {/* Project Header */}
       <div className="mb-8">

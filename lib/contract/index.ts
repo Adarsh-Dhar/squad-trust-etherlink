@@ -179,9 +179,11 @@ export interface SquadTrustContract {
 export class SquadTrustService {
   private contract: ethers.Contract;
   private signer: ethers.Signer;
+  private contractAddress: string;
 
   constructor(contractAddressParam: string = contractAddress, signer: ethers.Signer) {
     this.signer = signer;
+    this.contractAddress = contractAddressParam;
     this.contract = new ethers.Contract(contractAddressParam, abi, signer);
   }
 
@@ -194,109 +196,113 @@ export class SquadTrustService {
    * @returns Object containing projectId and txHash
    */
   async createProject(name: string, minTeamStake: string): Promise<{ projectId: string; txHash: string }> {
+    console.log("Creating project:", name, minTeamStake);
+    console.log("Contract address:", this.contractAddress);
+    console.log("Signer address:", await this.signer.getAddress());
+    
+    // Validate inputs
+    if (!name || name.trim().length === 0) {
+      throw new Error("Project name is required");
+    }
+    
+    if (!minTeamStake || parseFloat(minTeamStake) <= 0) {
+      throw new Error("Minimum team stake must be greater than 0");
+    }
+    
+    // Convert minTeamStake to Wei
+    const minTeamStakeWei = ethers.parseEther(minTeamStake);
+    console.log("Min team stake in Wei:", minTeamStakeWei.toString());
+    
     try {
-      console.log("Creating project:", name, minTeamStake);
-      console.log("Contract address:", this.contract.target);
-      console.log("Signer address:", await this.signer.getAddress());
+      // First, check if contract is deployed
+      const code = await this.signer.provider?.getCode(this.contractAddress);
+      if (code === "0x") {
+        throw new Error(`Contract not deployed at address ${this.contractAddress}. Please check your contract address and network.`);
+      }
       
-      const minTeamStakeWei = parseEther(minTeamStake);
-      console.log("Min team stake in Wei:", minTeamStakeWei.toString());
+      // Check if contract has the required function
+      try {
+        await this.contract.getProjectsCount();
+      } catch (e: any) {
+        throw new Error(`Contract at ${this.contractAddress} does not have the required functions. Please check if this is the correct SquadTrust contract.`);
+      }
       
-      // Send the transaction
+      // Create the project
       const tx = await this.contract.createProject(name, minTeamStakeWei);
       console.log("Transaction sent:", tx.hash);
       
-      // Wait for the transaction to be mined
+      // Wait for transaction to be mined
       const receipt = await tx.wait();
       console.log("Transaction receipt:", receipt);
       
-      // Try to get the projectId from the transaction receipt
+      // Try to get project ID from logs
+      let projectId: string | null = null;
+      
       if (receipt.logs && receipt.logs.length > 0) {
-        console.log("Processing", receipt.logs.length, "logs");
-        console.log("All logs:", JSON.stringify(receipt.logs, null, 2));
+        console.log("Transaction logs found:", receipt.logs.length);
         
-        for (let i = 0; i < receipt.logs.length; i++) {
-          const log = receipt.logs[i];
-          console.log(`Log ${i}:`, log);
-          
-          // Try to parse the log using the contract interface
+        // Look for ProjectCreated event
+        for (const log of receipt.logs) {
           try {
             const parsedLog = this.contract.interface.parseLog(log);
-            console.log(`Parsed log ${i}:`, parsedLog);
-            if (parsedLog?.name === 'ProjectCreated') {
-              const projectId = parsedLog.args.projectId.toString();
-              console.log("Found ProjectCreated event with projectId:", projectId);
-              return { projectId, txHash: tx.hash };
+            if (parsedLog && parsedLog.name === "ProjectCreated") {
+              projectId = parsedLog.args[0]; // projectId is the first argument
+              console.log("ProjectCreated event found:", parsedLog.args);
+              break;
             }
           } catch (e) {
-            console.log(`Failed to parse log ${i} with contract interface:`, e);
-            
-            // Try alternative parsing methods
-            try {
-              // Check if this is a ProjectCreated event by looking at the topics
-              if (log.topics && log.topics.length > 0) {
-                console.log(`Log topic[0]:`, log.topics[0]);
-                
-                // Try to decode the event data directly
-                try {
-                  const decoded = this.contract.interface.decodeEventLog('ProjectCreated', log.data, log.topics);
-                  const projectId = decoded.projectId.toString();
-                  console.log("Decoded projectId:", projectId);
-                  return { projectId, txHash: tx.hash };
-                } catch (decodeError) {
-                  console.log(`Failed to decode ProjectCreated event:`, decodeError);
-                }
-              }
-            } catch (parseError) {
-              console.log(`Failed alternative parsing for log ${i}:`, parseError);
-            }
+            // Skip logs that can't be parsed
             continue;
           }
         }
-      } else {
-        console.log("No logs found in transaction receipt");
       }
       
-      // If we can't find the event, try to get the project ID by calling the contract
-      // This is a fallback method - we'll try to get the latest project ID
-      console.log("No ProjectCreated event found, trying fallback method...");
-      
-      try {
-        // Get the total number of projects before and after creation
-        const projectsCountBefore = await this.contract.getProjectsCount();
-        console.log("Projects count before:", projectsCountBefore.toString());
+      if (!projectId) {
+        console.log("No ProjectCreated event found, trying fallback method...");
         
-        // The new project should be at index (projectsCountBefore - 1) since it's 0-indexed
-        const newProjectIndex = Number(projectsCountBefore) - 1;
-        if (newProjectIndex >= 0) {
-          const projectId = await this.contract.getProjectById(newProjectIndex);
-          console.log("Found project ID via fallback:", projectId);
-          return { projectId: projectId.toString(), txHash: tx.hash };
+        // Fallback: try to get the project ID by checking the projects count
+        try {
+          const projectCount = await this.contract.getProjectsCount();
+          console.log("Current project count:", projectCount.toString());
+          
+          // The new project should be at index projectCount - 1
+          if (projectCount > BigInt(0)) {
+            const projectIndex = projectCount - BigInt(1);
+            const projectData = await this.contract.getProject(projectIndex);
+            projectId = projectIndex.toString();
+            console.log("Project found at index:", projectIndex.toString());
+          }
+        } catch (e: any) {
+          console.log("Fallback method failed:", e.message);
         }
-      } catch (fallbackError) {
-        console.log("Fallback method failed:", fallbackError);
-        
-        // If all else fails, we can still return the transaction hash
-        // The project was created successfully, we just can't get the ID
+      }
+      
+      if (!projectId) {
         console.log("Project creation was successful, but couldn't retrieve project ID");
         console.log("Transaction hash:", tx.hash);
-        
-        // Return a placeholder project ID based on the transaction hash
-        const projectId = tx.hash.slice(0, 66); // Use first 66 chars of tx hash as project ID
-        return { projectId, txHash: tx.hash };
+        throw new Error(`Project created successfully but couldn't retrieve project ID. Transaction hash: ${tx.hash}. Please check the blockchain explorer for details.`);
       }
       
-      throw new Error("Could not determine project ID from transaction. Project creation failed.");
-    } catch (error) {
-      console.error('Error creating project:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : undefined,
-        code: (error as any)?.code,
-        reason: (error as any)?.reason
-      });
-      throw error;
+      return {
+        projectId,
+        txHash: tx.hash
+      };
+      
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      
+      // Provide more specific error messages
+      if (error.message.includes("insufficient funds")) {
+        throw new Error("Insufficient funds in wallet to create project. Please add more ETH to your wallet.");
+      } else if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user. Please try again.");
+      } else if (error.message.includes("nonce")) {
+        throw new Error("Transaction nonce error. Please refresh and try again.");
+      } else if (error.message.includes("gas")) {
+        throw new Error("Gas estimation failed. Please check your network connection and try again.");
+      } else {
+        throw new Error(`Failed to create project: ${error.message}`);
+      }
     }
   }
 
@@ -1040,6 +1046,189 @@ export class SquadTrustService {
    */
   async getDisputeCount(): Promise<number> {
     throw new Error("getDisputeCount method not yet implemented in the smart contract");
+  }
+}
+
+// ========== PROJECT CREATION SERVICE ==========
+
+/**
+ * Enhanced project creation service with full validation
+ */
+export class ProjectCreationService {
+  private squadTrustService: SquadTrustService;
+
+  constructor(contractAddress: string, signer: ethers.Signer) {
+    this.squadTrustService = createSquadTrustService(contractAddress, signer);
+  }
+
+  /**
+   * Create a project with full validation
+   */
+  async createProjectWithValidation(
+    name: string, 
+    minTeamStake: string,
+    creatorAddress: string
+  ): Promise<{ projectId: string; txHash: string; projectData: Project }> {
+    
+    // Step 1: Validate inputs
+    if (!name || name.trim().length === 0) {
+      throw new Error("Project name is required");
+    }
+    
+    if (!minTeamStake || parseFloat(minTeamStake) <= 0) {
+      throw new Error("Minimum team stake must be greater than 0");
+    }
+
+    // Step 2: Get initial project count
+    const initialCount = await this.squadTrustService.getProjectsCount();
+    console.log(`Initial projects count: ${initialCount}`);
+
+    // Step 3: Create project on blockchain
+    console.log("Creating project on blockchain...");
+    const result = await this.squadTrustService.createProject(name, minTeamStake);
+    console.log("Project creation transaction:", result);
+
+    // Step 4: Verify project was created successfully
+    const verificationResult = await this.verifyProjectCreation(
+      result.projectId, 
+      creatorAddress, 
+      name,
+      initialCount
+    );
+
+    if (!verificationResult.success) {
+      throw new Error(`Project creation verification failed: ${verificationResult.error}`);
+    }
+
+    // Step 5: Get the full project data
+    const projectData = await this.squadTrustService.getProject(result.projectId);
+
+    return {
+      projectId: result.projectId,
+      txHash: result.txHash,
+      projectData
+    };
+  }
+
+  /**
+   * Verify that a project was created successfully
+   */
+  private async verifyProjectCreation(
+    projectId: string,
+    expectedCreator: string,
+    expectedName: string,
+    initialCount: number
+  ): Promise<{ success: boolean; error?: string }> {
+    
+    try {
+      // Step 1: Verify project count increased
+      const finalCount = await this.squadTrustService.getProjectsCount();
+      if (finalCount <= initialCount) {
+        return {
+          success: false,
+          error: `Project count did not increase. Expected > ${initialCount}, got ${finalCount}`
+        };
+      }
+
+      // Step 2: Verify project exists and has correct data
+      const projectData = await this.squadTrustService.getProject(projectId);
+      
+      if (!projectData) {
+        return {
+          success: false,
+          error: "Project data not found on blockchain"
+        };
+      }
+
+      // Step 3: Verify creator matches
+      if (projectData.creator.toLowerCase() !== expectedCreator.toLowerCase()) {
+        return {
+          success: false,
+          error: `Creator mismatch. Expected: ${expectedCreator}, Got: ${projectData.creator}`
+        };
+      }
+
+      // Step 4: Verify project name matches
+      if (projectData.name !== expectedName) {
+        return {
+          success: false,
+          error: `Project name mismatch. Expected: ${expectedName}, Got: ${projectData.name}`
+        };
+      }
+
+      // Step 5: Verify project is in correct initial state
+      if (projectData.funded || projectData.completed || projectData.teamHired) {
+        return {
+          success: false,
+          error: "Project is not in correct initial state"
+        };
+      }
+
+      console.log("Project creation verification successful:", {
+        projectId,
+        creator: projectData.creator,
+        name: projectData.name,
+        funded: projectData.funded,
+        completed: projectData.completed,
+        teamHired: projectData.teamHired
+      });
+
+      return { success: true };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * Validate an existing project ID
+   */
+  async validateProjectId(
+    projectId: string, 
+    expectedCreator?: string
+  ): Promise<{ valid: boolean; projectData?: Project; error?: string }> {
+    
+    try {
+      // Check if projectId looks like a fallback ID
+      if (projectId.startsWith('fallback_')) {
+        return {
+          valid: false,
+          error: "Project ID is a fallback ID, not a real blockchain project"
+        };
+      }
+
+      // Try to get project data from blockchain
+      const projectData = await this.squadTrustService.getProject(projectId);
+      
+      if (!projectData) {
+        return {
+          valid: false,
+          error: "Project not found on blockchain"
+        };
+      }
+
+      // If expected creator is provided, verify it matches
+      if (expectedCreator && projectData.creator.toLowerCase() !== expectedCreator.toLowerCase()) {
+        return {
+          valid: false,
+          error: `Creator mismatch. Expected: ${expectedCreator}, Got: ${projectData.creator}`
+        };
+      }
+
+      return {
+        valid: true,
+        projectData
+      };
+
+    } catch (error) {
+      return {
+        valid: false,
+        error: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   }
 }
 
