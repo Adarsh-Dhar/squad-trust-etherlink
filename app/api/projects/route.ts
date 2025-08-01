@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate onchain data is provided
-    if (!blockchainProjectId || !txHash) {
-      return NextResponse.json({ error: 'Blockchain project ID and transaction hash are required' }, { status: 400 });
+    if (!blockchainProjectId) {
+      return NextResponse.json({ error: 'Blockchain project ID is required' }, { status: 400 });
     }
 
     // Get the user
@@ -109,7 +109,6 @@ export async function POST(req: NextRequest) {
         creator: session.user.walletAddress.toLowerCase(),
         teamId: placeholderTeam.id,
         blockchainProjectId: blockchainProjectId,
-        txHash: txHash,
         minimumStake: parseFloat(minTeamStake),
       },
       include: {
