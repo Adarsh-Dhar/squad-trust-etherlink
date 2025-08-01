@@ -82,17 +82,7 @@ export async function POST(
       return NextResponse.json({ error: 'Project is not currently hiring' }, { status: 400 });
     }
 
-    // Check if user has already applied in database
-    const existingApplication = await prisma.application.findFirst({
-      where: {
-        projectId,
-        applicantId: user.id,
-      },
-    });
-
-    if (existingApplication) {
-      return NextResponse.json({ error: 'You have already applied to this project' }, { status: 400 });
-    }
+    // Note: No validation for existing applications - teams can apply unlimited times
 
     // Verify onchain application exists (optional - since we're calling this after onchain tx)
     try {

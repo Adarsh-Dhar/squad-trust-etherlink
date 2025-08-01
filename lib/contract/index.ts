@@ -522,13 +522,17 @@ export class SquadTrustService {
         stakedAmount = "0";
       }
       
+      // Determine if team exists based on leader address
+      const leader = result[0];
+      const exists = leader && leader !== '0x0000000000000000000000000000000000000000';
+      
       return {
         leader: result[0],
         name: result[1],
         members: result[2],
         stakedAmount: stakedAmount,
         hired: result[4],
-        exists: result[5]
+        exists: exists
       };
     } catch (error) {
       console.error('Error getting team:', error);

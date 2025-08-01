@@ -364,12 +364,38 @@ export default function ProjectDetailsPage() {
       console.log('Database team ID:', teamId);
       console.log('Onchain team ID:', onchainTeamId);
       
+      let finalOnchainTeamId: string;
+      
+      // If team doesn't have onchainTeamId, create it on-chain first
       if (!onchainTeamId) {
-        throw new Error("Blockchain team ID not found for this application. The team may not be registered on-chain. Please ensure the team has been created on the blockchain first.");
+        console.log('Team does not have on-chain ID, creating team on-chain first...');
+        
+        try {
+          // Call the API to create team on-chain
+          const createTeamRes = await fetch(`/api/teams/${teamId}/onchain-id`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!createTeamRes.ok) {
+            const errorData = await createTeamRes.json();
+            throw new Error(`Failed to create team on-chain: ${errorData.error || 'Unknown error'}`);
+          }
+          
+          const teamData = await createTeamRes.json();
+          finalOnchainTeamId = teamData.onchainTeamId;
+          console.log('✅ Team created on-chain successfully:', finalOnchainTeamId);
+          
+        } catch (createError: any) {
+          console.error('Error creating team on-chain:', createError);
+          throw new Error(`Failed to create team on-chain: ${createError.message}`);
+        }
+      } else {
+        finalOnchainTeamId = onchainTeamId;
       }
 
-      // Validate that onchainTeamId is a valid blockchain address
-      if (!isValidAddress(onchainTeamId)) {
+      // Validate that finalOnchainTeamId is a valid blockchain address
+      if (!isValidAddress(finalOnchainTeamId)) {
         throw new Error("Invalid blockchain team ID format. Expected a valid Ethereum address.");
       }
 
@@ -390,25 +416,25 @@ export default function ProjectDetailsPage() {
       
       // Verify team exists on-chain before hiring
       try {
-        console.log(`Verifying team ${onchainTeamId} exists on-chain...`);
-        const teamOnChain = await squadTrustService.getTeam(onchainTeamId);
+        console.log(`Verifying team ${finalOnchainTeamId} exists on-chain...`);
+        const teamOnChain = await squadTrustService.getTeam(finalOnchainTeamId);
         console.log('Team on-chain data:', teamOnChain);
         
         if (!teamOnChain.exists) {
           throw new Error("Team does not exist on-chain. Cannot hire this team.");
         }
         
-        console.log(`Team ${onchainTeamId} verified on-chain successfully`);
+        console.log(`Team ${finalOnchainTeamId} verified on-chain successfully`);
       } catch (teamError: any) {
         console.error('Error verifying team on-chain:', teamError);
         if (teamError.message.includes('invalid BytesLike value')) {
-          throw new Error(`Invalid team ID format: ${onchainTeamId}. Expected a valid blockchain address.`);
+          throw new Error(`Invalid team ID format: ${finalOnchainTeamId}. Expected a valid blockchain address.`);
         }
         throw new Error(`Failed to verify team on-chain: ${teamError.message}`);
       }
       
-      console.log(`Hiring team ${onchainTeamId} for project ${project.blockchainProjectId} on-chain...`);
-      await squadTrustService.hireTeam(project.blockchainProjectId, onchainTeamId);
+      console.log(`Hiring team ${finalOnchainTeamId} for project ${project.blockchainProjectId} on-chain...`);
+      await squadTrustService.hireTeam(project.blockchainProjectId, finalOnchainTeamId);
       console.log('Team hired successfully on-chain');
       
       // 2. Only after successful on-chain transaction, update database
@@ -433,7 +459,7 @@ export default function ProjectDetailsPage() {
         setApplications(applicationsData);
       }
 
-      setSuccessMsg(`Team ${onchainTeamId} hired successfully on-chain and application accepted!`);
+      setSuccessMsg(`Team ${finalOnchainTeamId} hired successfully on-chain and application accepted!`);
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (e: any) {

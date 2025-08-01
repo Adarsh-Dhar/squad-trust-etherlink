@@ -118,27 +118,18 @@ export default function ApplyProjectsPage() {
         const teamsCount = await squadTrustService.getTeamsCount();
         console.log('Total teams on contract:', teamsCount);
         
-        // Try with team ID 1 first (most likely to exist)
-        console.log('Trying to get team with ID: 1');
-        const onchainTeamData = await squadTrustService.getTeam("1");
-        console.log('getTeam() Result for team 1:', onchainTeamData);
+        // Use the hash ID directly (this is the correct way)
+        console.log('Trying to get team with hash ID:', teamData.onchainTeamId);
+        const onchainTeamData = await squadTrustService.getTeam(teamData.onchainTeamId);
+        console.log('getTeam() Result with hash:', onchainTeamData);
         console.log('Team Leader:', onchainTeamData.leader);
         console.log('Team Name:', onchainTeamData.name);
         console.log('Team Members:', onchainTeamData.members);
         console.log('Staked Amount:', onchainTeamData.stakedAmount);
         console.log('Hired Status:', onchainTeamData.hired);
         console.log('Exists:', onchainTeamData.exists);
-      } catch (teamError) {
-        console.log('Error getting team 1:', teamError);
-        
-        // Try with the hash as a string
-        try {
-          console.log('Trying to get team with hash ID:', teamData.onchainTeamId);
-          const onchainTeamData = await squadTrustService.getTeam(teamData.onchainTeamId);
-          console.log('getTeam() Result with hash:', onchainTeamData);
-        } catch (hashError) {
-          console.log('Error getting team with hash:', hashError);
-        }
+      } catch (error) {
+        console.log('Error getting team with hash:', error);
       }
       
       console.log('=== END getTeam() LOGGING ===');

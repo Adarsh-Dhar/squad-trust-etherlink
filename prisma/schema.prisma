@@ -112,7 +112,7 @@ model Application {
   project        Project           @relation(fields: [projectId], references: [id])
   team           Team?             @relation(fields: [teamId], references: [id])
 
-  @@unique([projectId, applicantId])
+  // Removed unique constraint to allow multiple applications
 }
 
 model Milestone {
