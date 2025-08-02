@@ -853,19 +853,6 @@ export function TeamProfile({ teamId }: { teamId: string }) {
                   Apply for Projects
                 </Button>
               )}
-              {/* Create Project button */}
-              {isMember && (
-                <Button 
-                  variant="default" 
-                  onClick={() => {
-                    router.push(`/teams/${teamId}/projects`);
-                  }}
-                  className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Project
-                </Button>
-              )}
             </div>
           </div>
           <div className="grid gap-6">

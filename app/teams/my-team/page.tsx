@@ -123,8 +123,8 @@ export default function MyTeamPage() {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-12">
-          <div className="text-2xl font-bold mb-4">Connect Your Wallet</div>
-          <p className="text-muted-foreground mb-6">
+          <div className="text-2xl font-bold mb-4 text-gray-200">Connect Your Wallet</div>
+          <p className="text-gray-700 mb-6">
             Please connect your wallet to view your admin teams.
           </p>
           <Button onClick={() => window.location.href = '/auth/login'}>
@@ -138,7 +138,7 @@ export default function MyTeamPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12 text-red-500">
+        <div className="text-center py-12 text-red-600">
           {error}
         </div>
       </div>
@@ -148,8 +148,8 @@ export default function MyTeamPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Admin Teams</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-200 mb-2">My Admin Teams</h1>
+        <p className="text-gray-700">
           Teams where you are the administrator
         </p>
       </div>
@@ -162,10 +162,10 @@ export default function MyTeamPage() {
         </div>
       ) : teams.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-gray-500 mb-4">
-            <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium mb-2">No Admin Teams Found</h3>
-            <p className="text-gray-600 mb-6">
+          <div className="text-gray-600 mb-4">
+            <Users className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+            <h3 className="text-lg font-medium mb-2 text-gray-200">No Admin Teams Found</h3>
+            <p className="text-gray-700 mb-6">
               You don&apos;t have any teams where you are the administrator.
             </p>
             <div className="space-x-4">
@@ -197,16 +197,16 @@ export default function MyTeamPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold text-gray-900 mb-2">
+                      <CardTitle className="text-lg font-semibold text-gray-200 mb-2">
                         {team.name}
                       </CardTitle>
                       {team.bio && (
-                        <CardDescription className="text-sm text-gray-600 line-clamp-2">
+                        <CardDescription className="text-sm text-gray-700 line-clamp-2">
                           {team.bio}
                         </CardDescription>
                       )}
                     </div>
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-300">
                       Admin
                     </Badge>
                   </div>
@@ -216,35 +216,35 @@ export default function MyTeamPage() {
                   {/* Team Stats */}
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-700">{team.members.length} members</span>
+                      <Users className="h-4 w-4 text-gray-600" />
+                      <span className="text-gray-300">{team.members.length} members</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Briefcase className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-700">{team.projects.length} projects</span>
+                      <Briefcase className="h-4 w-4 text-gray-600" />
+                      <span className="text-gray-300">{team.projects.length} projects</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-700">{Math.round(trustScore * 100)}% trust</span>
+                      <TrendingUp className="h-4 w-4 text-gray-600" />
+                      <span className="text-gray-300">{Math.round(trustScore * 100)}% trust</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-700">{formatDate(team.createdAt)}</span>
+                      <Calendar className="h-4 w-4 text-gray-600" />
+                      <span className="text-gray-300">{formatDate(team.createdAt)}</span>
                     </div>
                   </div>
 
                   {/* Project Status */}
                   {team.projects.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-gray-700">Project Status</h4>
+                      <h4 className="text-sm font-medium text-gray-300">Project Status</h4>
                       <div className="flex flex-wrap gap-2">
                         {activeProjects > 0 && (
-                          <Badge className="bg-green-100 text-green-800">
+                          <Badge className="bg-green-100 text-green-300 border-green-200">
                             {activeProjects} Active
                           </Badge>
                         )}
                         {completedProjects > 0 && (
-                          <Badge className="bg-blue-100 text-blue-800">
+                          <Badge className="bg-blue-100 text-blue-300 border-blue-200">
                             {completedProjects} Completed
                           </Badge>
                         )}
@@ -254,10 +254,10 @@ export default function MyTeamPage() {
 
                   {/* Funding */}
                   {totalFunding > 0 && (
-                    <div className="pt-2 border-t border-gray-100">
+                    <div className="pt-2 border-t border-gray-200">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Total Funding</span>
-                        <span className="font-semibold text-green-600">
+                        <span className="text-gray-700">Total Funding</span>
+                        <span className="font-semibold text-green-700">
                           ${totalFunding.toLocaleString()}
                         </span>
                       </div>
@@ -268,12 +268,12 @@ export default function MyTeamPage() {
                   {team.tags && team.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {team.tags.slice(0, 3).map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Badge key={index} variant="outline" className="text-xs text-gray-700 border-gray-300">
                           {tag}
                         </Badge>
                       ))}
                       {team.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs text-gray-700 border-gray-300">
                           +{team.tags.length - 3} more
                         </Badge>
                       )}
@@ -281,7 +281,7 @@ export default function MyTeamPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex space-x-2 pt-4 border-t border-gray-100">
+                  <div className="flex space-x-2 pt-4 border-t border-gray-200">
                     <Button size="sm" asChild className="flex-1">
                       <Link href={`/teams/${team.id}`}>
                         <Eye className="h-4 w-4 mr-2" />
