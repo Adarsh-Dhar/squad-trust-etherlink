@@ -6,7 +6,6 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.2.4-black)](https://nextjs.org/)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.19-363636)](https://soliditylang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.17-38B2AC)](https://tailwindcss.com/)
 
 ## 📋 Table of Contents
 
@@ -18,18 +17,16 @@
 - [Smart Contracts](#smart-contracts)
 - [Database Schema](#database-schema)
 - [API Reference](#api-reference)
-- [Frontend Components](#frontend-components)
 - [Reputation Algorithm](#reputation-algorithm)
 - [Blockchain Integration](#blockchain-integration)
 - [Security Features](#security-features)
 - [Deployment](#deployment)
 - [Development Workflow](#development-workflow)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
 
 ## 🎯 Overview
 
-SquadTrust is a comprehensive blockchain-based platform that enables teams to build and verify reputation through transparent contribution tracking, smart contract verification, and advanced anti-gaming mechanisms. The platform combines traditional project management with blockchain technology to create immutable, verifiable records of team performance and credibility.
+SquadTrust is a comprehensive blockchain-based platform that enables teams to build and verify reputation through transparent contribution tracking, smart contract verification, and advanced anti-gaming mechanisms.
 
 ### Mission Statement
 To create the most trusted environment for team collaboration by leveraging blockchain technology for transparent reputation tracking and verification.
@@ -49,56 +46,33 @@ To create the most trusted environment for team collaboration by leveraging bloc
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### System Components
-
-1. **Frontend Layer**: Next.js 15 with React 19, Tailwind CSS, and Radix UI
-2. **Backend Layer**: Next.js API routes with Prisma ORM and PostgreSQL
-3. **Blockchain Layer**: Solidity smart contracts with Foundry deployment
-4. **Authentication**: NextAuth.js with wallet-based authentication
-5. **State Management**: TanStack Query for server state, React hooks for client state
-
 ## ✨ Features
 
 ### Core Features
 
 #### 🏢 Team Management
-- **Team Creation & Management**: Create teams with transparent reputation scores
-- **Role-Based Access Control**: Admin/Member roles with different permissions
-- **Automatic Cleanup**: Teams with 0 members or 0 admin members are automatically deleted
-- **Join/Leave Workflows**: Seamless team membership management
+- Create and manage teams with transparent reputation scores
+- Role-based access control (Admin/Member roles)
+- Automatic cleanup of empty teams
+- Join/leave workflows
 
 #### 📋 Project Management
-- **Blockchain-Integrated Projects**: Projects created on-chain using SquadTrust smart contract
-- **Milestone Tracking**: Comprehensive milestone management with verification
-- **Funding Management**: Investor signatures and funding workflows
-- **Project Completion**: End-to-end project lifecycle management
+- Blockchain-integrated project creation
+- Milestone tracking and verification
+- Funding management with investor signatures
+- End-to-end project lifecycle management
 
 #### 🏆 Reputation System
-- **Multi-Factor Scoring**: Base (40) + Time (30) + Budget (30) = 100 max points
-- **Time Decay Algorithm**: Exponential decay over 30-day periods
-- **Budget Tracking**: Actual vs. planned cost comparison
-- **Abandonment Penalties**: -20 points per abandoned project
-- **Dynamic Calculation**: `score = (base + time + budget) / decay_factor - penalties`
+- Multi-factor scoring (Base 40 + Time 30 + Budget 30)
+- Time decay algorithm over 30-day periods
+- Budget tracking and abandonment penalties
+- Dynamic calculation with decay factors
 
 #### 🔐 Security & Verification
-- **EIP-712 Cryptographic Verification**: Multi-signature role verification
-- **Anti-Gaming System**: Dispute creation and community voting
-- **Stake Slashing**: Up to 10% stake slashing for false claims
-- **Execution NFTs**: Automatic minting on successful project completion
-
-### Advanced Features
-
-#### 🎨 Execution NFTs
-- **Automatic Minting**: NFTs minted on successful project completion
-- **Rich Metadata**: Project details, team composition, reputation impact
-- **On-Chain SVG**: Generated artwork with project-specific details
-- **Cross-Platform Proof**: Portable reputation verification
-
-#### ⚖️ Dispute System
-- **Dispute Creation**: High-reputation users can create disputes
-- **Community Voting**: Reputation-weighted voting system
-- **Disputer Rewards**: 20% of slashed stake to successful disputers
-- **Sybil Resistance**: Reputation thresholds for participation
+- EIP-712 cryptographic verification
+- Anti-gaming dispute system
+- Stake slashing mechanisms
+- Execution NFTs for completed projects
 
 ## 🛠️ Technology Stack
 
@@ -107,7 +81,7 @@ To create the most trusted environment for team collaboration by leveraging bloc
 - **Language**: TypeScript 5.0
 - **UI Library**: React 19
 - **Styling**: Tailwind CSS 3.4.17
-- **UI Components**: Radix UI (comprehensive component library)
+- **UI Components**: Radix UI
 - **State Management**: TanStack Query 5.83.0
 - **Forms**: React Hook Form 7.54.1
 - **Validation**: Zod 3.24.1
@@ -117,25 +91,16 @@ To create the most trusted environment for team collaboration by leveraging bloc
 - **Database**: PostgreSQL with Prisma ORM 6.12.0
 - **Authentication**: NextAuth.js 4.24.11
 - **API**: Next.js API routes
-- **Validation**: Zod 3.24.1
 
 ### Blockchain
 - **Language**: Solidity 0.8.19
 - **Development**: Foundry
 - **Testing**: Forge
-- **Deployment**: Foundry scripts
 - **Web3 Integration**: Ethers.js 6.15.0, Viem 2.32.0, Wagmi 2.15.7
-
-### Development Tools
-- **Package Manager**: pnpm 9.10.0
-- **Linting**: ESLint 9
-- **Type Checking**: TypeScript 5.0
-- **Environment**: Bun (recommended) or npm
 
 ## 🚀 Installation & Setup
 
 ### Prerequisites
-
 - Node.js 18+
 - PostgreSQL
 - Bun (recommended) or npm
@@ -143,7 +108,7 @@ To create the most trusted environment for team collaboration by leveraging bloc
 
 ### Environment Setup
 
-Create a `.env` file with the following variables:
+Create a `.env` file:
 
 ```bash
 # Database
@@ -161,38 +126,26 @@ PRIVATE_KEY="your-private-key-for-server-side-transactions"
 
 ### Installation Steps
 
-1. **Clone the repository**
+1. **Clone and install dependencies**
    ```bash
    git clone <repository-url>
    cd squadtrust
-   ```
-
-2. **Install dependencies**
-   ```bash
    bun install
-   # or
-   npm install
    ```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Run database migrations**
+2. **Set up database**
    ```bash
    npx prisma db push
    ```
 
-5. **Deploy smart contracts**
+3. **Deploy smart contracts**
    ```bash
    cd contract
    forge build
    forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
    ```
 
-6. **Start development server**
+4. **Start development server**
    ```bash
    bun run dev
    ```
@@ -201,16 +154,9 @@ PRIVATE_KEY="your-private-key-for-server-side-transactions"
 
 ### SquadTrust.sol
 
-The main smart contract that handles project and team management.
+Main smart contract handling project and team management.
 
-#### Key Features:
-- **Project Management**: Create, fund, and complete projects
-- **Team Management**: Create teams and manage members
-- **Staking System**: Stake-based role claiming and verification
-- **Milestone Tracking**: Create and complete milestones
-- **Dispute System**: Handle disputes with community voting
-
-#### Core Structs:
+#### Key Structs:
 ```solidity
 struct Project {
     address creator;
@@ -231,14 +177,6 @@ struct Team {
     bool hired;
     bool exists;
 }
-
-struct Milestone {
-    string title;
-    uint256 deadline;
-    uint256 compensation;
-    bool completed;
-    bool rewarded;
-}
 ```
 
 #### Key Functions:
@@ -251,12 +189,7 @@ struct Milestone {
 
 ### ExecutionNFT.sol
 
-Handles the minting of execution NFTs for completed projects.
-
-#### Features:
-- **Automatic Minting**: NFTs minted on successful project completion
-- **Rich Metadata**: Project details and team composition
-- **On-Chain SVG**: Generated artwork with project-specific details
+Handles minting of execution NFTs for completed projects.
 
 ## 🗄️ Database Schema
 
@@ -276,15 +209,8 @@ model User {
   applications            Application[]
   roles                   ContributorRole[]
   credibility             CredibilityScore?
-  joinRequests            JoinRequest[]
-  milestoneConfirmations  MilestoneConfirmation[]
-  milestoneVerifications  MilestoneVerification[]
-  notifications           Notification[]
-  oracleVerifications     OracleVerification[]
-  projectAbandonmentVotes ProjectAbandonmentVote[]
   teams                   TeamMember[]
   scoreData               UserScoreData?
-  verifications           Verification[]
 }
 ```
 
@@ -300,7 +226,6 @@ model Team {
   tags           String[]
   onchainTeamId  String?           @unique
   credibility    CredibilityScore?
-  joinRequests   JoinRequest[]
   projects       Project[]
   members        TeamMember[]
   applications   Application[]
@@ -315,7 +240,6 @@ model Project {
   description                 String
   githubRepo                  String?
   liveUrl                     String?
-  deliveryHash                String?
   status                      ProjectStatus                @default(HIRING)
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
@@ -335,40 +259,10 @@ model Project {
   applications                Application[]
   roles                       ContributorRole[]
   funding                     Funding[]
-  investorSignatures          InvestorSignature[]
   milestones                  Milestone[]
-  milestoneInvestorSignatures MilestoneInvestorSignature[]
   team                        Team?                        @relation(fields: [teamId], references: [id])
-  abandonmentVotes            ProjectAbandonmentVote[]
   scoreData                   ProjectScoreData?
   signatures                  ProjectSignature?
-}
-```
-
-### Enums
-```prisma
-enum TeamMemberRole {
-  ADMIN
-  MEMBER
-}
-
-enum ProjectStatus {
-  HIRING
-  IN_PROGRESS
-  COMPLETED
-  ABANDONED
-}
-
-enum ProjectType {
-  HACKATHON
-  STARTUP
-  ENTERPRISE
-}
-
-enum ApplicationStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
 }
 ```
 
@@ -384,45 +278,6 @@ List all teams with pagination and filtering.
 - `limit`: Items per page (default: 10)
 - `search`: Search term for team name
 - `tags`: Filter by tags
-
-**Response:**
-```json
-{
-  "teams": [
-    {
-      "id": "string",
-      "name": "string",
-      "bio": "string",
-      "website": "string",
-      "createdAt": "datetime",
-      "tags": ["string"],
-      "onchainTeamId": "string",
-      "credibility": {
-        "score": "number",
-        "lastUpdated": "datetime"
-      },
-      "members": [
-        {
-          "id": "string",
-          "role": "ADMIN|MEMBER",
-          "joinedAt": "datetime",
-          "user": {
-            "id": "string",
-            "name": "string",
-            "walletAddress": "string"
-          }
-        }
-      ]
-    }
-  ],
-  "pagination": {
-    "page": "number",
-    "limit": "number",
-    "total": "number",
-    "pages": "number"
-  }
-}
-```
 
 #### `POST /api/teams`
 Create a new team.
@@ -443,13 +298,7 @@ Get team details by ID.
 #### `DELETE /api/teams/[teamId]`
 Delete a team (admin only).
 
-#### `POST /api/teams/cleanup`
-Clean up empty teams.
-
 ### Projects API
-
-#### `GET /api/projects/[id]`
-Get project details by ID.
 
 #### `POST /api/teams/[teamId]/projects`
 Create a new project with blockchain integration.
@@ -494,12 +343,6 @@ Apply for a project.
 }
 ```
 
-#### `POST /api/projects/[id]/apply/[applicationId]/accept`
-Accept an application (project creator only).
-
-#### `POST /api/projects/[id]/apply/[applicationId]/reject`
-Reject an application (project creator only).
-
 ### Milestones API
 
 #### `POST /api/projects/[id]/milestones`
@@ -507,9 +350,6 @@ Create a milestone.
 
 #### `POST /api/milestones/[id]/complete`
 Mark milestone as completed.
-
-#### `POST /api/milestones/[id]/verify`
-Verify milestone completion.
 
 ### Disputes API
 
@@ -519,63 +359,9 @@ Create a dispute.
 #### `POST /api/disputes/[id]/resolve`
 Resolve a dispute.
 
-#### `POST /api/disputes/auto-resolve`
-Auto-resolve disputes based on reputation.
-
-## 🎨 Frontend Components
-
-### Core Components
-
-#### Header Component
-```typescript
-// components/header.tsx
-export function Header() {
-  // Navigation, wallet connection, user menu
-}
-```
-
-#### Features Section
-```typescript
-// components/features-section.tsx
-export function FeaturesSection() {
-  // Platform features display with icons and descriptions
-}
-```
-
-### UI Components (Radix UI)
-
-The application uses a comprehensive set of Radix UI components:
-
-- **Navigation**: NavigationMenu, Menubar
-- **Forms**: Form, Input, Select, Checkbox, RadioGroup
-- **Feedback**: Toast, AlertDialog, Dialog
-- **Layout**: Accordion, Collapsible, Tabs
-- **Data Display**: Avatar, Progress, Separator
-- **Interactive**: Button, Switch, Slider, Toggle
-
-### Custom Hooks
-
-#### `useWalletConnection`
-```typescript
-// hooks/useWalletConnection.ts
-export function useWalletConnection() {
-  // Wallet connection logic with wagmi
-}
-```
-
-#### `useReputation`
-```typescript
-// hooks/useReputation.ts
-export function useReputation(userId: string) {
-  // Reputation score calculation and updates
-}
-```
-
 ## 🏆 Reputation Algorithm
 
 ### Multi-Factor Scoring System
-
-The reputation algorithm uses a sophisticated multi-factor approach:
 
 #### Base Score (40 points)
 - Project completion rate
@@ -647,8 +433,6 @@ function completeMilestone(
 
 ### EIP-712 Signature Verification
 
-The platform uses EIP-712 for secure signature verification:
-
 ```typescript
 const domain = {
   name: 'SquadTrust',
@@ -692,11 +476,10 @@ const types = {
 
 ## 🚀 Deployment
 
-### Production Deployment
+### Production Environment
 
-#### Environment Setup
+#### Environment Variables
 ```bash
-# Production environment variables
 DATABASE_URL="postgresql://prod-user:password@prod-host:5432/squadtrust"
 NEXTAUTH_SECRET="production-secret-key"
 NEXTAUTH_URL="https://your-domain.com"
@@ -705,20 +488,17 @@ RPC_URL="https://mainnet-rpc-url"
 PRIVATE_KEY="production-private-key"
 ```
 
-#### Database Migration
+#### Deployment Steps
 ```bash
+# Database migration
 npx prisma migrate deploy
 npx prisma generate
-```
 
-#### Smart Contract Deployment
-```bash
+# Smart contract deployment
 cd contract
 forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC --broadcast --verify
-```
 
-#### Application Deployment
-```bash
+# Application deployment
 npm run build
 npm start
 ```
@@ -737,62 +517,20 @@ EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
-#### Docker Compose
-```yaml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/squadtrust
-    depends_on:
-      - db
-  
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=squadtrust
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
 ## 🔄 Development Workflow
 
 ### Code Quality
 
-#### Linting
 ```bash
+# Linting
 npm run lint
-```
 
-#### Type Checking
-```bash
+# Type checking
 npm run type-check
-```
 
-#### Testing
-```bash
 # Contract tests
 cd contract && forge test
-
-# Application tests
-npm run test
 ```
-
-### Git Workflow
-
-1. **Feature Branches**: Create feature branches from main
-2. **Pull Requests**: Submit PRs for review
-3. **Code Review**: Mandatory review process
-4. **Testing**: All changes must pass tests
-5. **Deployment**: Automated deployment on merge
 
 ### Database Migrations
 
@@ -840,61 +578,13 @@ rm -rf node_modules && npm install
 
 ### Debug Mode
 
-Enable debug logging:
 ```bash
 DEBUG=* npm run dev
 ```
 
-### Performance Monitoring
-
-- **Database**: Monitor query performance with Prisma Studio
-- **Blockchain**: Track gas usage and transaction times
-- **Frontend**: Use React DevTools for component profiling
-
-## 🤝 Contributing
-
-### Development Setup
-
-1. **Fork the repository**
-2. **Create feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make changes**: Follow coding standards
-4. **Add tests**: Ensure all tests pass
-5. **Submit PR**: Create pull request with description
-
-### Coding Standards
-
-- **TypeScript**: Strict type checking enabled
-- **ESLint**: Follow ESLint configuration
-- **Prettier**: Use Prettier for code formatting
-- **Conventional Commits**: Follow conventional commit format
-
-### Testing Guidelines
-
-- **Unit Tests**: Test individual functions and components
-- **Integration Tests**: Test API endpoints and database operations
-- **Contract Tests**: Test smart contract functionality
-- **E2E Tests**: Test complete user workflows
-
-### Documentation
-
-- **Code Comments**: Document complex logic
-- **API Documentation**: Keep API docs updated
-- **README Updates**: Update README for new features
-- **Architecture Docs**: Document architectural decisions
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Next.js Team**: For the amazing React framework
-- **Radix UI**: For the accessible component library
-- **Prisma Team**: For the excellent ORM
-- **Foundry Team**: For the Solidity development tools
-- **OpenZeppelin**: For the secure smart contract libraries
 
 ---
 
