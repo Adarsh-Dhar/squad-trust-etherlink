@@ -115,12 +115,6 @@ export default function ProjectsPage() {
     }
   };
 
-  const getApplicationStatus = (project: Project) => {
-    if (!team) return 'Create Team First';
-    if (!project.blockchainProjectId) return 'Project Not On-Chain';
-    if (!team.onchainTeamId) return 'Create Team On-Chain';
-    return 'Apply for Project';
-  };
 
   const isApplicationReady = (project: Project) => {
     return project.status === 'HIRING' && 
@@ -359,15 +353,6 @@ export default function ProjectsPage() {
           <FolderOpen className="w-4 h-4" />
           My Projects
         </Link>
-        {team && (
-          <Link
-            href={`/teams/my-team/${team.id}/apply-projects`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-card text-foreground border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
-          >
-            <Send className="w-4 h-4" />
-            Apply with Team
-          </Link>
-        )}
       </div>
 
       {/* Filters */}
@@ -551,19 +536,6 @@ export default function ProjectsPage() {
                   >
                     View Details
                   </Link>
-                  {project.status === 'HIRING' && (
-                    <button
-                      onClick={() => handleApply(project)}
-                      disabled={!isApplicationReady(project)}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-200 text-center font-medium text-sm ${
-                        isApplicationReady(project)
-                          ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md hover:scale-102'
-                          : 'bg-muted text-muted-foreground border border-border cursor-not-allowed'
-                      }`}
-                    >
-                      {getApplicationStatus(project)}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
