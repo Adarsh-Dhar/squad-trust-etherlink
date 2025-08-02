@@ -27,7 +27,7 @@ export function Header() {
   const navigation = [
     { name: "Home", href: "/" },
     { name: "Teams", href: "/teams" },
-    { name: "My Projects", href: "/projects/my-projects" },
+    { name: "Projects", href: "/projects" },
     { name: "About", href: "/about" },
   ]
 
@@ -52,7 +52,7 @@ export function Header() {
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground group-hover:scale-105 transition-transform">
               <Shield className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold text-primary">
               SquadTrust
             </span>
           </Link>
@@ -157,7 +157,7 @@ export function Header() {
                 <Button
                   onClick={handleConnectWallet}
                   disabled={isConnecting}
-                  className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                  className="bg-primary hover:bg-primary/90"
                 >
                   <Wallet className="mr-2 h-4 w-4" />
                   {isConnecting ? "Connecting..." : "Connect Wallet"}
@@ -249,7 +249,7 @@ export function Header() {
                       <Button
                         onClick={handleConnectWallet}
                         disabled={isConnecting}
-                        className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+                        className="w-full bg-primary hover:bg-primary/90"
                       >
                         <Wallet className="mr-2 h-4 w-4" />
                         {isConnecting ? "Connecting..." : "Connect Wallet"}

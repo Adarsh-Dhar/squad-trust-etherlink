@@ -279,15 +279,15 @@ export default function ProjectsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'FINISHED':
-        return 'bg-green-500/20 text-green-300 border-green-500/30';
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-500/30';
       case 'HIRING':
-        return 'bg-blue-500 text-white';
+        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-500/30';
       case 'HIRED':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-500/30';
       case 'FUNDS_DISTRIBUTED':
-        return 'bg-green-500/20 text-green-300 border-green-500/30';
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-500/30';
       default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -309,11 +309,9 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-gray-300">Loading projects...</div>
-          </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Loading projects...</div>
         </div>
       </div>
     );
@@ -321,407 +319,405 @@ export default function ProjectsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-6 text-center">
-            <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-red-300 mb-2">Error Loading Projects</h3>
-            <p className="text-red-200">{error}</p>
-            <button
-              onClick={fetchProjects}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-6 text-center">
+          <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-destructive mb-2">Error Loading Projects</h3>
+          <p className="text-destructive/80">{error}</p>
+          <button
+            onClick={fetchProjects}
+            className="mt-4 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Discover <span className="text-purple-400">Projects</span></h1>
-          <p className="text-gray-300 text-lg">Explore blockchain projects with verified track records and transparent reputation scores.</p>
-        </div>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-foreground mb-2">Discover <span className="text-primary">Projects</span></h1>
+        <p className="text-muted-foreground text-lg">Explore blockchain projects with verified track records and transparent reputation scores.</p>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="mb-6 flex flex-wrap gap-4">
+      {/* Action Buttons */}
+      <div className="mb-8 flex flex-wrap gap-3">
+        <Link
+          href="/projects/create"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium shadow-sm hover:shadow-md hover:scale-102"
+        >
+          <Plus className="w-4 h-4" />
+          Create New
+        </Link>
+        <Link
+          href="/projects/my-projects"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-card text-foreground border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+        >
+          <FolderOpen className="w-4 h-4" />
+          My Projects
+        </Link>
+        {team && (
           <Link
-            href="/projects/create"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            href={`/teams/my-team/${team.id}/apply-projects`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-card text-foreground border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
           >
-            <Plus className="w-5 h-5" />
-            Create New
+            <Send className="w-4 h-4" />
+            Apply with Team
           </Link>
-          <Link
-            href="/projects/my-projects"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-transparent text-white border border-white/20 rounded-lg hover:bg-white/10 transition-colors font-medium"
-          >
-            <FolderOpen className="w-5 h-5" />
-            My Projects
-          </Link>
-          {team && (
-            <Link
-              href={`/teams/my-team/${team.id}/apply-projects`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-transparent text-white border border-white/20 rounded-lg hover:bg-white/10 transition-colors font-medium"
-            >
-              <Send className="w-5 h-5" />
-              Apply with Team
-            </Link>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex flex-wrap gap-3">
+      {/* Filters */}
+      <div className="mb-8">
+        <div className="flex flex-wrap gap-1 p-1 bg-muted/30 rounded-lg border border-border">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-sm ${
               statusFilter === 'all'
-                ? 'bg-purple-600 text-white'
-                : 'bg-transparent text-white border border-white/20 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-background'
             }`}
           >
             All Projects
           </button>
           <button
             onClick={() => setStatusFilter('HIRING')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-sm ${
               statusFilter === 'HIRING'
-                ? 'bg-purple-600 text-white'
-                : 'bg-transparent text-white border border-white/20 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-background'
             }`}
           >
             Ongoing
           </button>
           <button
             onClick={() => setStatusFilter('HIRED')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-sm ${
               statusFilter === 'HIRED'
-                ? 'bg-purple-600 text-white'
-                : 'bg-transparent text-white border border-white/20 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-background'
             }`}
           >
             Failed
           </button>
           <button
             onClick={() => setStatusFilter('FINISHED')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-sm ${
               statusFilter === 'FINISHED'
-                ? 'bg-purple-600 text-white'
-                : 'bg-transparent text-white border border-white/20 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-background'
             }`}
           >
             Completed
           </button>
           <button
             onClick={() => setStatusFilter('FUNDS_DISTRIBUTED')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md font-medium transition-all duration-200 text-sm ${
               statusFilter === 'FUNDS_DISTRIBUTED'
-                ? 'bg-purple-600 text-white'
-                : 'bg-transparent text-white border border-white/20 hover:bg-white/10'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-background'
             }`}
           >
             Funds Distributed
           </button>
         </div>
+      </div>
 
-        {/* Projects Grid */}
-        {projects.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <GitBranch className="w-12 h-12 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">No projects found</h3>
-            <p className="text-gray-300">No projects match your current filters.</p>
-            <Link
-              href="/projects/create"
-              className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+      {/* Projects Grid */}
+      {projects.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+            <GitBranch className="w-12 h-12 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">No projects found</h3>
+          <p className="text-muted-foreground">No projects match your current filters.</p>
+          <Link
+            href="/projects/create"
+            className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium shadow-sm hover:shadow-md hover:scale-102"
+          >
+            <Plus className="w-4 h-4" />
+            Create Your First Project
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <div
+              key={project.id}
+              className="bg-card border border-border rounded-xl shadow-lg hover:shadow-xl hover:bg-accent/50 transition-all duration-200 overflow-hidden"
             >
-              <Plus className="w-5 h-5" />
-              Create Your First Project
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-700/50 hover:shadow-xl hover:bg-gray-800/70 transition-all duration-200 overflow-hidden"
-              >
-                {/* Project Header */}
-                <div className="p-6 border-b border-gray-700/50">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-xl font-semibold text-white truncate">
-                      {project.name}
-                    </h3>
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(project.status)}
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-300 text-sm mb-4 line-clamp-3">
-                    {project.description}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
-                      {project.status}
-                    </span>
+              {/* Project Header */}
+              <div className="p-6 border-b border-border">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-xl font-semibold text-foreground truncate">
+                    {project.name}
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    {getStatusIcon(project.status)}
                   </div>
                 </div>
-
-                {/* Project Details */}
-                <div className="p-6 space-y-4">
-                  {/* Team Info */}
-                  <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Users className="w-4 h-4" />
-                    <span>{project.team.name}</span>
-                    <span className="text-gray-400">•</span>
-                    <span>{project.team.members.length} members</span>
-                  </div>
-
-                  {/* Creator Info */}
-                  <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <span className="text-gray-400">Created by:</span>
-                    <span className="font-mono text-xs bg-gray-700/50 px-2 py-1 rounded text-gray-300">
-                      {project.creator.slice(0, 6)}...{project.creator.slice(-4)}
-                    </span>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <GitBranch className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-300">
-                        {getCompletedMilestones(project.milestones)}/{project.milestones.length} milestones
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-300">
-                        {formatDate(project.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Funding */}
-                  {project.funding.length > 0 && (
-                    <div className="pt-3 border-t border-gray-700/50">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-300">Total Funding:</span>
-                        <span className="font-semibold text-green-400">
-                          {getTotalFunding(project.funding)} {project.funding[0]?.currency || 'ETH'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Links */}
-                  <div className="flex gap-2 pt-3 border-t border-gray-700/50">
-                    {project.githubRepo && (
-                      <a
-                        href={project.githubRepo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-gray-300 hover:text-white transition-colors"
-                      >
-                        <GitBranch className="w-4 h-4" />
-                        GitHub
-                      </a>
-                    )}
-                    {project.liveUrl && (
-                      <a
-                        href={project.liveUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-gray-300 hover:text-white transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Live Demo
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-3 border-t border-gray-700/50">
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-center font-medium text-sm"
-                    >
-                      View Details
-                    </Link>
-                    {project.status === 'HIRING' && (
-                      <button
-                        onClick={() => handleApply(project)}
-                        disabled={!isApplicationReady(project)}
-                        className={`flex-1 px-4 py-2 rounded-lg transition-colors text-center font-medium text-sm ${
-                          isApplicationReady(project)
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-transparent text-gray-400 border border-gray-600 cursor-not-allowed'
-                        }`}
-                      >
-                        {getApplicationStatus(project)}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Load More Button */}
-        {projects.length >= 50 && (
-          <div className="text-center mt-8">
-            <button
-              onClick={() => {
-                // Implement pagination
-                console.log('Load more projects');
-              }}
-              className="px-6 py-3 bg-transparent text-white border border-white/20 rounded-lg hover:bg-white/10 transition-colors font-medium"
-            >
-              Load More Projects
-            </button>
-          </div>
-        )}
-
-        {/* Apply Dialog */}
-        {showApplyDialog && selectedProject && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
-              <div className="p-6 border-b border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-white">Apply for Project</h2>
-                  <button
-                    onClick={() => setShowApplyDialog(false)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <p className="text-gray-300">
-                  Apply to join: <span className="font-semibold text-white">{selectedProject.name}</span>
+                
+                <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
+                  {project.description}
                 </p>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Cover Letter */}
-                <div>
-                  <label htmlFor="coverLetter" className="block text-sm font-medium text-white mb-2">
-                    Cover Letter *
-                  </label>
-                  <textarea
-                    id="coverLetter"
-                    value={applicationData.coverLetter}
-                    onChange={(e) => setApplicationData({ ...applicationData, coverLetter: e.target.value })}
-                    placeholder="Explain why your team is the best fit for this project..."
-                    className="w-full h-32 px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-white placeholder-gray-400"
-                    required
-                  />
-                </div>
-
-                {/* Proposed Stake */}
-                <div>
-                  <label htmlFor="proposedStake" className="block text-sm font-medium text-white mb-2">
-                    Proposed Stake (ETH) *
-                  </label>
-                  <input
-                    id="proposedStake"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={applicationData.proposedStake}
-                    onChange={(e) => setApplicationData({ ...applicationData, proposedStake: e.target.value })}
-                    placeholder="0.5"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
-                    required
-                  />
-                </div>
-
-                {/* Quote Amount */}
-                <div>
-                  <label htmlFor="quoteAmount" className="block text-sm font-medium text-white mb-2">
-                    Project Quote (ETH) *
-                  </label>
-                  <input
-                    id="quoteAmount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={applicationData.quoteAmount}
-                    onChange={(e) => setApplicationData({ ...applicationData, quoteAmount: e.target.value })}
-                    placeholder="2.5"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-gray-400"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Total amount quoted to complete the project</p>
-                </div>
-
-                {/* Team Experience */}
-                <div>
-                  <label htmlFor="teamExperience" className="block text-sm font-medium text-white mb-2">
-                    Team Experience
-                  </label>
-                  <textarea
-                    id="teamExperience"
-                    value={applicationData.teamExperience}
-                    onChange={(e) => setApplicationData({ ...applicationData, teamExperience: e.target.value })}
-                    placeholder="Describe your team's relevant experience and skills..."
-                    className="w-full h-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-white placeholder-gray-400"
-                  />
-                </div>
-
-                {/* Deadline */}
-                <div>
-                  <label htmlFor="deadline" className="block text-sm font-medium text-white mb-2">
-                    Project Deadline *
-                  </label>
-                  <input
-                    id="deadline"
-                    type="date"
-                    value={applicationData.deadline}
-                    onChange={(e) => setApplicationData({ ...applicationData, deadline: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Expected completion date for the project</p>
+                
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-white/10 flex gap-3 justify-end">
+              {/* Project Details */}
+              <div className="p-6 space-y-4">
+                {/* Team Info */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="w-4 h-4" />
+                  <span>{project.team.name}</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span>{project.team.members.length} members</span>
+                </div>
+
+                {/* Creator Info */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="text-muted-foreground">Created by:</span>
+                  <span className="font-mono text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
+                    {project.creator.slice(0, 6)}...{project.creator.slice(-4)}
+                  </span>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      {getCompletedMilestones(project.milestones)}/{project.milestones.length} milestones
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      {formatDate(project.createdAt)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Funding */}
+                {project.funding.length > 0 && (
+                  <div className="pt-3 border-t border-border">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total Funding:</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        {getTotalFunding(project.funding)} {project.funding[0]?.currency || 'ETH'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Links */}
+                <div className="flex gap-2 pt-3 border-t border-border">
+                  {project.githubRepo && (
+                    <a
+                      href={project.githubRepo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <GitBranch className="w-4 h-4" />
+                      GitHub
+                    </a>
+                  )}
+                  {project.liveUrl && (
+                    <a
+                      href={project.liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Live Demo
+                    </a>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t border-border">
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 text-center font-medium text-sm shadow-sm hover:shadow-md hover:scale-102"
+                  >
+                    View Details
+                  </Link>
+                  {project.status === 'HIRING' && (
+                    <button
+                      onClick={() => handleApply(project)}
+                      disabled={!isApplicationReady(project)}
+                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-200 text-center font-medium text-sm ${
+                        isApplicationReady(project)
+                          ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md hover:scale-102'
+                          : 'bg-muted text-muted-foreground border border-border cursor-not-allowed'
+                      }`}
+                    >
+                      {getApplicationStatus(project)}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Load More Button */}
+      {projects.length >= 50 && (
+        <div className="text-center mt-8">
+          <button
+            onClick={() => {
+              // Implement pagination
+              console.log('Load more projects');
+            }}
+            className="px-6 py-2.5 bg-card text-foreground border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 font-medium shadow-sm hover:shadow-md hover:scale-102"
+          >
+            Load More Projects
+          </button>
+        </div>
+      )}
+
+      {/* Apply Dialog */}
+      {showApplyDialog && selectedProject && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-foreground">Apply for Project</h2>
                 <button
                   onClick={() => setShowApplyDialog(false)}
-                  className="px-4 py-2 text-white bg-transparent border border-white/20 rounded-lg hover:bg-white/10 transition-colors font-medium"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitApplication}
-                  disabled={submitting || !applicationData.coverLetter || !applicationData.proposedStake || !applicationData.quoteAmount || !applicationData.deadline}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Submit Application
-                    </>
-                  )}
+                  <X className="w-6 h-6" />
                 </button>
               </div>
+              <p className="text-muted-foreground">
+                Apply to join: <span className="font-semibold text-foreground">{selectedProject.name}</span>
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Cover Letter */}
+              <div>
+                <label htmlFor="coverLetter" className="block text-sm font-medium text-foreground mb-2">
+                  Cover Letter *
+                </label>
+                <textarea
+                  id="coverLetter"
+                  value={applicationData.coverLetter}
+                  onChange={(e) => setApplicationData({ ...applicationData, coverLetter: e.target.value })}
+                  placeholder="Explain why your team is the best fit for this project..."
+                  className="w-full h-32 px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none text-foreground placeholder-muted-foreground"
+                  required
+                />
+              </div>
+
+              {/* Proposed Stake */}
+              <div>
+                <label htmlFor="proposedStake" className="block text-sm font-medium text-foreground mb-2">
+                  Proposed Stake (ETH) *
+                </label>
+                <input
+                  id="proposedStake"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={applicationData.proposedStake}
+                  onChange={(e) => setApplicationData({ ...applicationData, proposedStake: e.target.value })}
+                  placeholder="0.5"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-foreground placeholder-muted-foreground"
+                  required
+                />
+              </div>
+
+              {/* Quote Amount */}
+              <div>
+                <label htmlFor="quoteAmount" className="block text-sm font-medium text-foreground mb-2">
+                  Project Quote (ETH) *
+                </label>
+                <input
+                  id="quoteAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={applicationData.quoteAmount}
+                  onChange={(e) => setApplicationData({ ...applicationData, quoteAmount: e.target.value })}
+                  placeholder="2.5"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-foreground placeholder-muted-foreground"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">Total amount quoted to complete the project</p>
+              </div>
+
+              {/* Team Experience */}
+              <div>
+                <label htmlFor="teamExperience" className="block text-sm font-medium text-foreground mb-2">
+                  Team Experience
+                </label>
+                <textarea
+                  id="teamExperience"
+                  value={applicationData.teamExperience}
+                  onChange={(e) => setApplicationData({ ...applicationData, teamExperience: e.target.value })}
+                  placeholder="Describe your team's relevant experience and skills..."
+                  className="w-full h-24 px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none text-foreground placeholder-muted-foreground"
+                />
+              </div>
+
+              {/* Deadline */}
+              <div>
+                <label htmlFor="deadline" className="block text-sm font-medium text-foreground mb-2">
+                  Project Deadline *
+                </label>
+                <input
+                  id="deadline"
+                  type="date"
+                  value={applicationData.deadline}
+                  onChange={(e) => setApplicationData({ ...applicationData, deadline: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-foreground"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">Expected completion date for the project</p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-border flex gap-3 justify-end">
+              <button
+                onClick={() => setShowApplyDialog(false)}
+                className="px-4 py-2 text-foreground bg-card border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitApplication}
+                disabled={submitting || !applicationData.coverLetter || !applicationData.proposedStake || !applicationData.quoteAmount || !applicationData.deadline}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium disabled:bg-muted disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-102"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Submit Application
+                  </>
+                )}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
