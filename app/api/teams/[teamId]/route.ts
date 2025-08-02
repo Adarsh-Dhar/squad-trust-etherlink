@@ -34,6 +34,50 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ team
   }
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
+  try {
+    const { teamId } = await params;
+    const body = await req.json();
+    
+    // Check if team exists
+    const existingTeam = await prisma.team.findUnique({
+      where: { id: teamId },
+    });
+
+    if (!existingTeam) {
+      return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
+    }
+
+    // Update team with provided data
+    const updatedTeam = await prisma.team.update({
+      where: { id: teamId },
+      data: body,
+      include: {
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        projects: {
+          include: {
+            milestones: true,
+            funding: true,
+          },
+        },
+        credibility: true,
+      },
+    });
+
+    return NextResponse.json(updatedTeam);
+  } catch (error: any) {
+    console.error('Error updating team:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to update team.' }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ teamId: string }> }) {
   try {
     const { teamId } = await params;

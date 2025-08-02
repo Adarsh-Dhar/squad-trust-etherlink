@@ -366,25 +366,48 @@ export default function ProjectDetailsPage() {
       
       let finalOnchainTeamId: string;
       
+      // Get signer and service once at the beginning
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
       // If team doesn't have onchainTeamId, create it on-chain first
       if (!onchainTeamId) {
         console.log('Team does not have on-chain ID, creating team on-chain first...');
         
         try {
-          // Call the API to create team on-chain
-          const createTeamRes = await fetch(`/api/teams/${teamId}/onchain-id`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          // Get team details from the application
+          const teamName = application.applicant.teams?.[0]?.team?.name || 'Team';
+          
+          // Use the applicant as the team member for now
+          // In a real implementation, you would fetch all team members from the database
+          const teamMembers = [application.applicant.walletAddress];
+          
+          console.log('Team members for on-chain creation:', teamMembers);
+          
+          console.log('Creating team on-chain:', {
+            name: teamName,
+            members: teamMembers
           });
           
-          if (!createTeamRes.ok) {
-            const errorData = await createTeamRes.json();
-            throw new Error(`Failed to create team on-chain: ${errorData.error || 'Unknown error'}`);
-          }
+          const { teamId: newOnchainTeamId, txHash } = await squadTrustService.createTeam(teamName, teamMembers);
+          finalOnchainTeamId = newOnchainTeamId;
           
-          const teamData = await createTeamRes.json();
-          finalOnchainTeamId = teamData.onchainTeamId;
           console.log('✅ Team created on-chain successfully:', finalOnchainTeamId);
+          console.log('Transaction hash:', txHash);
+          
+          // Update the team in database with the new onchainTeamId
+          const updateTeamRes = await fetch(`/api/teams/${teamId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ onchainTeamId: finalOnchainTeamId }),
+          });
+          
+          if (!updateTeamRes.ok) {
+            const errorData = await updateTeamRes.json();
+            console.warn('Warning: Failed to update team with onchain ID in database:', errorData);
+            // Continue anyway since the on-chain creation was successful
+          }
           
         } catch (createError: any) {
           console.error('Error creating team on-chain:', createError);
@@ -394,9 +417,10 @@ export default function ProjectDetailsPage() {
         finalOnchainTeamId = onchainTeamId;
       }
 
-      // Validate that finalOnchainTeamId is a valid blockchain address
-      if (!isValidAddress(finalOnchainTeamId)) {
-        throw new Error("Invalid blockchain team ID format. Expected a valid Ethereum address.");
+      // Validate that finalOnchainTeamId is a valid blockchain team ID
+      // Note: Team IDs are bytes32 values, not Ethereum addresses
+      if (!finalOnchainTeamId) {
+        throw new Error("Invalid blockchain team ID. Team ID is required.");
       }
 
       // Check if project has blockchain ID
@@ -409,11 +433,37 @@ export default function ProjectDetailsPage() {
         throw new Error("Project is not in HIRING status. Cannot accept applications.");
       }
 
-      // 1. First, call hireTeam on-chain
-      const signer = await getSigner();
-      if (!signer) throw new Error("Please connect your wallet");
-      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      // Check if team has already applied on-chain
+      const projectApplications = await squadTrustService.getProjectApplications(project.blockchainProjectId);
+      const hasApplied = projectApplications.some((app: any) => 
+        app.teamId === finalOnchainTeamId && app.applicant.toLowerCase() === application.applicant.walletAddress.toLowerCase()
+      );
       
+      if (!hasApplied) {
+        console.log('Team has not applied on-chain yet. Applying on-chain automatically...');
+        
+        // Automatically apply the team on-chain using the project creator's wallet
+        // This simulates the team applying with their proposed stake
+        try {
+          const proposedStake = application.proposedStake.toString();
+          console.log(`Applying team ${finalOnchainTeamId} for project ${project.blockchainProjectId} with stake ${proposedStake} ETH`);
+          
+          // Note: This will use the project creator's wallet to pay the stake
+          // In a real scenario, the team leader should pay their own stake
+          // But for now, we'll use the project creator's wallet to make it work
+          await squadTrustService.applyForProject(
+            project.blockchainProjectId,
+            finalOnchainTeamId,
+            proposedStake
+          );
+          
+          console.log('✅ Team applied on-chain successfully');
+        } catch (applyError: any) {
+          console.error('Error applying team on-chain:', applyError);
+          throw new Error(`Failed to apply team on-chain: ${applyError.message}. The team leader should call applyForProject first.`);
+        }
+      }
+
       // Verify team exists on-chain before hiring
       try {
         console.log(`Verifying team ${finalOnchainTeamId} exists on-chain...`);
@@ -437,7 +487,7 @@ export default function ProjectDetailsPage() {
       await squadTrustService.hireTeam(project.blockchainProjectId, finalOnchainTeamId);
       console.log('Team hired successfully on-chain');
       
-      // 2. Only after successful on-chain transaction, update database
+      // Only after successful on-chain transaction, update database
       const res = await fetch(`/api/projects/${projectId}/apply/${applicationId}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -445,7 +495,7 @@ export default function ProjectDetailsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to accept application in database");
       
-      // 3. Refresh project and applications data
+      // Refresh project and applications data
       const projectRes = await fetch(`/api/projects/${projectId}`);
       const projectData = await projectRes.json();
       if (projectRes.ok) {
