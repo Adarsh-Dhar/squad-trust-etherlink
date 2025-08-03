@@ -17,7 +17,7 @@ interface Project {
   liveUrl?: string;
   createdAt: string;
   updatedAt: string;
-  team: {
+  team?: {
     id: string;
     name: string;
     members: Array<{
@@ -461,9 +461,14 @@ export default function ProjectsPage() {
                 {/* Team Info */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="w-4 h-4" />
-                  <span>{project.team.name}</span>
+                  <span>{project.team?.name || 'No Team Assigned'}</span>
                   <span className="text-muted-foreground">•</span>
-                  <span>{project.team.members.length} members</span>
+                  <span>{project.team?.members?.length || 0} members</span>
+                  {!project.team && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
+                      (Teams can apply)
+                    </span>
+                  )}
                 </div>
 
                 {/* Creator Info */}

@@ -83,22 +83,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Create a placeholder team for the project creator
-    // This allows projects to be created without requiring an existing team
-    const placeholderTeam = await prisma.team.create({
-      data: {
-        name: `${user.name || 'Anonymous'}'s Project Team`,
-        bio: `Team for ${title}`,
-        members: {
-          create: {
-            userId: user.id,
-            role: 'ADMIN',
-          },
-        },
-      },
-    });
-
     // Create the project in database with onchain data
+    // Note: No team is associated initially - teams will apply for the project
     const project = await prisma.project.create({
       data: {
         name: title,
@@ -107,7 +93,7 @@ export async function POST(req: NextRequest) {
         liveUrl: liveUrl || null,
         status: 'HIRING',
         creator: session.user.walletAddress.toLowerCase(),
-        teamId: placeholderTeam.id,
+        teamId: null, // No team associated initially
         blockchainProjectId: blockchainProjectId,
         minimumStake: parseFloat(minTeamStake),
       },
@@ -129,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ...project,
-      message: 'Project created successfully with onchain data.',
+      message: 'Project created successfully. Teams can now apply for this project.',
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);

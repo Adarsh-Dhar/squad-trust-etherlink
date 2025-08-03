@@ -16,7 +16,7 @@ interface Project {
   liveUrl?: string;
   createdAt: string;
   updatedAt: string;
-  team: {
+  team?: {
     id: string;
     name: string;
     members: Array<{
@@ -74,25 +74,14 @@ export default function MyProjectsPage() {
         params.append('status', statusFilter);
       }
       
-      const response = await fetch(`/api/projects?${params.toString()}`);
+      // Use the new my-projects endpoint
+      const response = await fetch(`/api/projects/my-projects?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
       
       const data = await response.json();
-      
-      // Add debugging
-      console.log('Fetched projects data:', data);
-      console.log('Connected wallet:', connectedWallet);
-      
-      // Filter projects to only show those created by the connected wallet
-      const myProjects = data.filter((project: Project) => 
-        project.creator.toLowerCase() === connectedWallet.toLowerCase()
-      );
-      
-      console.log('My projects after filtering:', myProjects);
-      
-      setProjects(myProjects);
+      setProjects(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -313,9 +302,14 @@ export default function MyProjectsPage() {
                 {/* Team Info */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="w-4 h-4" />
-                  <span>{project.team.name}</span>
+                  <span>{project.team?.name || 'No Team'}</span>
                   <span className="text-muted-foreground">•</span>
-                  <span>{project.team.members.length} members</span>
+                  <span>{project.team?.members.length || 0} members</span>
+                  {!project.team && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400 ml-1">
+                      (Teams can apply)
+                    </span>
+                  )}
                 </div>
 
                 {/* Stats */}
