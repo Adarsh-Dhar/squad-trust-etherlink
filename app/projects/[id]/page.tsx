@@ -174,6 +174,11 @@ export default function ProjectDetailsPage() {
   const [verificationsLoading, setVerificationsLoading] = useState(false);
   const [verificationsError, setVerificationsError] = useState<string | null>(null);
 
+  // Unstaking state variables
+  const [unstakingAmount, setUnstakingAmount] = useState<string | null>(null);
+  const [unstakingRecipient, setUnstakingRecipient] = useState<string | null>(null);
+  const [unstakingStatus, setUnstakingStatus] = useState<'idle' | 'unstaking' | 'completed' | 'error'>('idle');
+
   // Edit role handler
   const openEditRole = (role: any) => {
     setEditRoleId(role.id);
@@ -749,6 +754,10 @@ export default function ProjectDetailsPage() {
     setOnchainCompleteLoading(true);
     setOnchainCompleteError(null);
     setOnchainCompleteSuccess(null);
+    setUnstakingStatus('idle');
+    setUnstakingAmount(null);
+    setUnstakingRecipient(null);
+    
     try {
       if (!project?.blockchainProjectId) {
         throw new Error("Blockchain project ID not found for this project.");
@@ -759,8 +768,41 @@ export default function ProjectDetailsPage() {
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
       
+      // Get project applications to find the hired team's stake amount
+      const applications = await squadTrustService.getProjectApplications(project.blockchainProjectId);
+      const hiredTeamId = await squadTrustService.getHiredTeam(project.blockchainProjectId);
+      
+      let stakeAmount = "0";
+      let teamLeader = "";
+      
+      if (hiredTeamId && hiredTeamId !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        // Find the accepted application for the hired team
+        const acceptedApplication = applications.find(app => 
+          app.teamId === hiredTeamId && app.accepted
+        );
+        
+        if (acceptedApplication) {
+          stakeAmount = acceptedApplication.stakedAmount;
+          teamLeader = acceptedApplication.applicant;
+        }
+      }
+      
+      // Show unstaking information before completing
+      if (stakeAmount !== "0" && teamLeader) {
+        setUnstakingAmount(stakeAmount);
+        setUnstakingRecipient(teamLeader);
+        setUnstakingStatus('unstaking');
+      }
+      
       // Call completeProject function from the contract
       await squadTrustService.completeProject(project.blockchainProjectId);
+      
+      // Show completion status based on calculated amounts
+      if (stakeAmount !== "0" && teamLeader) {
+        setUnstakingAmount(stakeAmount);
+        setUnstakingRecipient(teamLeader);
+        setUnstakingStatus('completed');
+      }
       
       // 2. Only after successful on-chain completion, update DB
       const res = await fetch(`/api/projects/${projectId}/finish`, { method: "PATCH" });
@@ -770,8 +812,17 @@ export default function ProjectDetailsPage() {
       // 3. Update local state only after both operations succeed
       setProject((prev) => prev ? { ...prev, status: "FINISHED", completedAt: new Date().toISOString() } : prev);
       setOnchainCompleteSuccess("Project marked as finished on-chain and in database!");
+      
+      // Clear unstaking info after a delay
+      setTimeout(() => {
+        setUnstakingStatus('idle');
+        setUnstakingAmount(null);
+        setUnstakingRecipient(null);
+      }, 5000);
+      
     } catch (e: any) {
       setOnchainCompleteError(e.message || "Failed to complete project");
+      setUnstakingStatus('error');
     } finally {
       setOnchainCompleteLoading(false);
     }
@@ -1145,6 +1196,41 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Add this useEffect after the other useEffect hooks
+  useEffect(() => {
+    const fetchUnstakingInfo = async () => {
+      if (!project?.blockchainProjectId || project.status !== "FINISHED") return;
+      
+      try {
+        const signer = await getSigner();
+        if (!signer) return;
+        
+        const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+        
+        // Get project applications to find the hired team's stake amount
+        const applications = await squadTrustService.getProjectApplications(project.blockchainProjectId);
+        const hiredTeamId = await squadTrustService.getHiredTeam(project.blockchainProjectId);
+        
+        if (hiredTeamId && hiredTeamId !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+          // Find the accepted application for the hired team
+          const acceptedApplication = applications.find(app => 
+            app.teamId === hiredTeamId && app.accepted
+          );
+          
+          if (acceptedApplication) {
+            setUnstakingAmount(acceptedApplication.stakedAmount);
+            setUnstakingRecipient(acceptedApplication.applicant);
+            setUnstakingStatus('completed');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching unstaking info:', error);
+      }
+    };
+    
+    fetchUnstakingInfo();
+  }, [project?.blockchainProjectId, project?.status]);
+
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading project...</div>;
   if (error) return <div className="flex min-h-screen items-center justify-center text-destructive">{error}</div>;
   if (!project) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Project not found.</div>;
@@ -1197,10 +1283,74 @@ export default function ProjectDetailsPage() {
               Delete
             </Button>
             {project.status === "HIRED" && (
-              <Button size="sm" onClick={handleCompleteOnchainAndDB} disabled={onchainCompleteLoading} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold shadow-md hover:from-purple-600 hover:to-pink-600 transition-all">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {onchainCompleteLoading ? "Finishing..." : "Finish Project"}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={handleCompleteOnchainAndDB} 
+                  disabled={onchainCompleteLoading} 
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold shadow-md hover:from-purple-600 hover:to-pink-600 transition-all"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {onchainCompleteLoading ? "Finishing..." : "Finish Project"}
+                </Button>
+                
+                {/* Unstaking Status Display */}
+                {unstakingStatus !== 'idle' && (
+                  <div className={`p-4 rounded-lg border-2 ${
+                    unstakingStatus === 'unstaking' ? 'bg-blue-50 border-blue-300 text-blue-900' :
+                    unstakingStatus === 'completed' ? 'bg-green-50 border-green-300 text-green-900' :
+                    'bg-red-50 border-red-300 text-red-900'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      {unstakingStatus === 'unstaking' && (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                          <span className="font-semibold">Processing Unstaking...</span>
+                        </div>
+                      )}
+                      {unstakingStatus === 'completed' && (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                          <span className="font-semibold">Stake Successfully Returned!</span>
+                        </div>
+                      )}
+                      {unstakingStatus === 'error' && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 text-red-600">⚠️</div>
+                          <span className="font-semibold">Error During Unstaking</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {unstakingAmount && unstakingRecipient && (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Amount Returned:</span>
+                          <span className="font-mono font-bold text-lg">
+                            {parseFloat(unstakingAmount).toFixed(6)} ETH
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Recipient:</span>
+                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                            {unstakingRecipient}
+                          </span>
+                        </div>
+                        {unstakingStatus === 'completed' && (
+                          <div className="mt-3 p-2 bg-green-100 rounded text-xs">
+                            ✅ The staked amount has been successfully returned to the team leader's wallet.
+                          </div>
+                        )}
+                        {unstakingStatus === 'error' && (
+                          <div className="mt-3 p-2 bg-red-100 rounded text-xs">
+                            ❌ There was an error during the unstaking process. Please check the transaction on the blockchain.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
             {/* Withdraw Stake Button for current user (on-chain check) */}
             {showWithdrawStake && userDbRole && (
@@ -1268,6 +1418,33 @@ export default function ProjectDetailsPage() {
                   <p className="text-gray-600 mt-1">{project.fundingAmount ? `${project.fundingAmount} ETH` : "Not specified"}</p>
                 </div>
               </div>
+
+              {/* Unstaking Information for Completed Projects */}
+              {project.status === "FINISHED" && unstakingAmount && unstakingRecipient && (
+                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-green-800 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Stake Returned
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-green-700">Amount Returned:</span>
+                      <span className="font-mono font-bold text-green-800">
+                        {parseFloat(unstakingAmount).toFixed(6)} ETH
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-green-700">Team Leader:</span>
+                      <span className="font-mono text-xs bg-green-100 px-2 py-1 rounded text-green-800">
+                        {unstakingRecipient}
+                      </span>
+                    </div>
+                    <div className="mt-3 p-2 bg-green-100 rounded text-xs text-green-700">
+                      ✅ The team's staked amount has been successfully returned upon project completion.
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
