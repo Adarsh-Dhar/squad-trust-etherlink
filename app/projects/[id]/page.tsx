@@ -440,28 +440,14 @@ export default function ProjectDetailsPage() {
       );
       
       if (!hasApplied) {
-        console.log('Team has not applied on-chain yet. Applying on-chain automatically...');
+        // Instead of automatically applying, inform the user that the team needs to apply on-chain first
+        const teamLeaderAddress = application.applicant.walletAddress;
+        const proposedStake = application.proposedStake;
         
-        // Automatically apply the team on-chain using the project creator's wallet
-        // This simulates the team applying with their proposed stake
-        try {
-          const proposedStake = application.proposedStake.toString();
-          console.log(`Applying team ${finalOnchainTeamId} for project ${project.blockchainProjectId} with stake ${proposedStake} ETH`);
-          
-          // Note: This will use the project creator's wallet to pay the stake
-          // In a real scenario, the team leader should pay their own stake
-          // But for now, we'll use the project creator's wallet to make it work
-          await squadTrustService.applyForProject(
-            project.blockchainProjectId,
-            finalOnchainTeamId,
-            proposedStake
-          );
-          
-          console.log('✅ Team applied on-chain successfully');
-        } catch (applyError: any) {
-          console.error('Error applying team on-chain:', applyError);
-          throw new Error(`Failed to apply team on-chain: ${applyError.message}. The team leader should call applyForProject first.`);
-        }
+        throw new Error(
+          `Team has not applied on-chain yet. The team leader (${teamLeaderAddress}) needs to apply on-chain first with their proposed stake of ${proposedStake} ETH. ` +
+          `The team leader should use the "Apply On-Chain" button below their application to submit their stake.`
+        );
       }
 
       // Verify team exists on-chain before hiring
@@ -538,6 +524,91 @@ export default function ProjectDetailsPage() {
       setApplicationActionError(e.message || "Failed to reject application");
     } finally {
       setRejectingApplicationId(null);
+    }
+  };
+
+  // Apply on-chain handler for team leaders
+  const [applyingOnChainId, setApplyingOnChainId] = useState<string | null>(null);
+  const [applyingOnChainError, setApplyingOnChainError] = useState<string | null>(null);
+  const [applyingOnChainSuccess, setApplyingOnChainSuccess] = useState<string | null>(null);
+
+  const handleApplyOnChain = async (application: Application) => {
+    setApplyingOnChainId(application.id);
+    setApplyingOnChainError(null);
+    setApplyingOnChainSuccess(null);
+    
+    try {
+      // Check if user is connected
+      if (!walletAddress) {
+        throw new Error("Please connect your wallet to apply on-chain");
+      }
+
+      // Check if user is the team leader (applicant)
+      if (walletAddress.toLowerCase() !== application.applicant.walletAddress.toLowerCase()) {
+        throw new Error("Only the team leader can apply on-chain for this application");
+      }
+
+      // Get team ID from the application
+      const teamId = application.applicant.teams?.[0]?.team?.id;
+      if (!teamId) {
+        throw new Error("Team ID not found for this application");
+      }
+
+      // Check if team has onchainTeamId
+      const onchainTeamId = application.applicant.teams?.[0]?.team?.onchainTeamId;
+      if (!onchainTeamId) {
+        throw new Error("Team does not have an on-chain ID. Team must be created on-chain first.");
+      }
+
+      // Check if project has blockchain ID
+      if (!project?.blockchainProjectId) {
+        throw new Error("Project does not have a blockchain ID");
+      }
+
+      // Get signer and create service
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error("Please connect your wallet");
+      }
+
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Check if team has already applied
+      const projectApplications = await squadTrustService.getProjectApplications(project.blockchainProjectId);
+      const hasApplied = projectApplications.some((app: any) => 
+        app.teamId === onchainTeamId && app.applicant.toLowerCase() === walletAddress.toLowerCase()
+      );
+      
+      if (hasApplied) {
+        throw new Error("Team has already applied for this project on-chain");
+      }
+
+      // Apply for the project on-chain
+      const txHash = await squadTrustService.applyForProject(
+        project.blockchainProjectId,
+        onchainTeamId,
+        application.proposedStake.toString()
+      );
+      
+      setApplyingOnChainSuccess(`Successfully applied on-chain! Transaction: ${txHash}`);
+      
+      // Refresh applications to update the status
+      const applicationsRes = await fetch(`/api/projects/${projectId}/apply`);
+      const applicationsData = await applicationsRes.json();
+      if (applicationsRes.ok) {
+        setApplications(applicationsData);
+      }
+      
+    } catch (e: any) {
+      console.error('Error applying on-chain:', e);
+      setApplyingOnChainError(e.message || "Failed to apply on-chain");
+    } finally {
+      setApplyingOnChainId(null);
+      // Clear success/error messages after 5 seconds
+      setTimeout(() => {
+        setApplyingOnChainSuccess(null);
+        setApplyingOnChainError(null);
+      }, 5000);
     }
   };
 
@@ -1297,8 +1368,33 @@ export default function ProjectDetailsPage() {
                 <div className="text-muted-foreground">No applications yet.</div>
               ) : (
                 <div className="space-y-3">
+                  {/* On-chain Application Notice */}
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-blue-800 mb-1">On-Chain Application Required</h4>
+                        <p className="text-sm text-blue-700">
+                          Before accepting an application, the team leader must apply on-chain with their proposed stake. 
+                          Team leaders can use the "Apply On-Chain" button below their application to submit their stake directly. 
+                          Only after the on-chain application is submitted can the project creator accept the application.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   {applicationActionError && (
                     <div className="text-destructive text-sm mb-4">{applicationActionError}</div>
+                  )}
+                  {applyingOnChainError && (
+                    <div className="text-destructive text-sm mb-4">{applyingOnChainError}</div>
+                  )}
+                  {applyingOnChainSuccess && (
+                    <div className="text-green-600 text-sm mb-4">{applyingOnChainSuccess}</div>
                   )}
                   {getFilteredAndSortedApplications().map((application) => (
                     <div key={application.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card">
@@ -1332,6 +1428,21 @@ export default function ProjectDetailsPage() {
                         <Badge variant={application.status === "ACCEPTED" ? "default" : application.status === "REJECTED" ? "destructive" : "secondary"}>
                           {application.status}
                         </Badge>
+                        
+                        {/* Team Leader Apply On-Chain Button */}
+                        {application.status === "PENDING" && project?.status === "HIRING" && 
+                         walletAddress && walletAddress.toLowerCase() === application.applicant.walletAddress.toLowerCase() && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleApplyOnChain(application)}
+                            disabled={applyingOnChainId === application.id}
+                            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                          >
+                            {applyingOnChainId === application.id ? "Applying on-chain..." : "Apply On-Chain"}
+                          </Button>
+                        )}
+                        
                         {application.status === "PENDING" && project?.status === "HIRING" && (
                           <div className="flex gap-2">
                             {walletAddress && walletAddress.toLowerCase() === project?.creator?.toLowerCase() ? (
