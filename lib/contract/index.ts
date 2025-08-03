@@ -153,6 +153,7 @@ export interface SquadTrustContract {
   submitMilestoneCompletion(projectId: string, milestoneId: number): Promise<void>;
   approveMilestone(projectId: string, milestoneId: number): Promise<void>;
   completeProject(projectId: string): Promise<void>;
+  finishProject(projectId: string): Promise<void>;
   withdrawFromVault(teamId: string): Promise<void>;
   
   // View Functions
@@ -455,6 +456,20 @@ export class SquadTrustService {
       await tx.wait();
     } catch (error) {
       console.error('Error completing project:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Finish a project (mark as fully completed)
+   * @param projectId The project identifier
+   */
+  async finishProject(projectId: string): Promise<void> {
+    try {
+      const tx = await this.contract.finishProject(projectId);
+      await tx.wait();
+    } catch (error) {
+      console.error('Error finishing project:', error);
       throw error;
     }
   }

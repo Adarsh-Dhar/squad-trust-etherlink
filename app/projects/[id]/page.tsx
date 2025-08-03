@@ -120,6 +120,9 @@ export default function ProjectDetailsPage() {
   const [onchainCompleteLoading, setOnchainCompleteLoading] = useState(false);
   const [onchainCompleteError, setOnchainCompleteError] = useState<string | null>(null);
   const [onchainCompleteSuccess, setOnchainCompleteSuccess] = useState<string | null>(null);
+  const [finishProjectLoading, setFinishProjectLoading] = useState(false);
+  const [finishProjectError, setFinishProjectError] = useState<string | null>(null);
+  const [finishProjectSuccess, setFinishProjectSuccess] = useState<string | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [applicationsError, setApplicationsError] = useState<string | null>(null);
@@ -247,7 +250,7 @@ export default function ProjectDetailsPage() {
         { id: "2", verifier: { name: "Verifier 2" }, comment: "Solid contribution.", createdAt: new Date().toISOString() },
       ]);
       setVerificationsLoading(false);
-    }, 800);
+    }, 200);
   };
   const closeViewVerifications = () => {
     setViewVerificationsRoleId(null);
@@ -751,7 +754,7 @@ export default function ProjectDetailsPage() {
         throw new Error("Blockchain project ID not found for this project.");
       }
       
-      // 1. Complete on-chain FIRST - this is the primary action
+      // 1. Complete project on-chain FIRST - this is the primary action
       const signer = await getSigner();
       if (!signer) throw new Error("Please connect your wallet");
       const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
@@ -760,17 +763,49 @@ export default function ProjectDetailsPage() {
       await squadTrustService.completeProject(project.blockchainProjectId);
       
       // 2. Only after successful on-chain completion, update DB
-      const res = await fetch(`/api/projects/${projectId}/complete`, { method: "PATCH" });
+      const res = await fetch(`/api/projects/${projectId}/finish`, { method: "PATCH" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to mark as completed in DB");
+      if (!res.ok) throw new Error(data.error || "Failed to mark as finished in DB");
       
       // 3. Update local state only after both operations succeed
-      setProject((prev) => prev ? { ...prev, status: "HIRED" } : prev);
-      setOnchainCompleteSuccess("Project marked as hired on-chain and in database!");
+      setProject((prev) => prev ? { ...prev, status: "FINISHED", completedAt: new Date().toISOString() } : prev);
+      setOnchainCompleteSuccess("Project marked as finished on-chain and in database!");
     } catch (e: any) {
       setOnchainCompleteError(e.message || "Failed to complete project");
     } finally {
       setOnchainCompleteLoading(false);
+    }
+  };
+
+  const handleFinishProject = async () => {
+    setFinishProjectLoading(true);
+    setFinishProjectError(null);
+    setFinishProjectSuccess(null);
+    try {
+      if (!project?.blockchainProjectId) {
+        throw new Error("Blockchain project ID not found for this project.");
+      }
+      
+      // 1. Finish project on-chain FIRST - this is the primary action
+      const signer = await getSigner();
+      if (!signer) throw new Error("Please connect your wallet");
+      const squadTrustService = createSquadTrustService(CONTRACT_ADDRESS, signer);
+      
+      // Call finishProject function from the contract
+      await squadTrustService.finishProject(project.blockchainProjectId);
+      
+      // 2. Only after successful on-chain completion, update DB
+      const res = await fetch(`/api/projects/${projectId}/finish`, { method: "PATCH" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to mark as finished in DB");
+      
+      // 3. Update local state only after both operations succeed
+      setProject((prev) => prev ? { ...prev, status: "FINISHED", completedAt: new Date().toISOString() } : prev);
+      setFinishProjectSuccess("Project marked as finished on-chain and in database!");
+    } catch (e: any) {
+      setFinishProjectError(e.message || "Failed to finish project");
+    } finally {
+      setFinishProjectLoading(false);
     }
   };
 
@@ -1117,7 +1152,7 @@ export default function ProjectDetailsPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* DEBUG INFO */}
-      <div className="mb-4 p-4 bg-yellow-100 text-yellow-900 rounded text-xs">
+      {/* <div className="mb-4 p-4 bg-yellow-100 text-yellow-900 rounded text-xs">
         <div className="flex justify-between items-center mb-2">
           <div><b>Debug Info:</b></div>
           <Button 
@@ -1135,12 +1170,12 @@ export default function ProjectDetailsPage() {
         <div>userDbRole: <pre>{JSON.stringify(userDbRole, null, 2)}</pre></div>
         <div>onChainUserRole: <pre>{JSON.stringify(onChainUserRole, null, 2)}</pre></div>
         <div>Blockchain Validation: <pre>{JSON.stringify(blockchainValidation, null, 2)}</pre></div>
-      </div>
+      </div> */}
       {/* Project Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{project.name || "Untitled Project"}</h1>
+            <h1 className="text-3xl font-bold text-gray-300">{project.name || "Untitled Project"}</h1>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant={
                 project.status === "FINISHED" ? "default" : 
@@ -1161,10 +1196,10 @@ export default function ProjectDetailsPage() {
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </Button>
-            {project.status === "HIRING" && (
-              <Button size="sm" onClick={handleCompleteOnchainAndDB} disabled={onchainCompleteLoading} className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold shadow-md hover:from-green-600 hover:to-emerald-600 transition-all">
+            {project.status === "HIRED" && (
+              <Button size="sm" onClick={handleCompleteOnchainAndDB} disabled={onchainCompleteLoading} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold shadow-md hover:from-purple-600 hover:to-pink-600 transition-all">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {onchainCompleteLoading ? "Completing..." : "Mark as Hired"}
+                {onchainCompleteLoading ? "Finishing..." : "Finish Project"}
               </Button>
             )}
             {/* Withdraw Stake Button for current user (on-chain check) */}
@@ -1185,6 +1220,8 @@ export default function ProjectDetailsPage() {
         {error && <div className="text-destructive text-sm mb-4">{error}</div>}
         {onchainCompleteSuccess && <div className="text-green-600 text-sm mb-4">{onchainCompleteSuccess}</div>}
         {onchainCompleteError && <div className="text-destructive text-sm mb-4">{onchainCompleteError}</div>}
+        {finishProjectSuccess && <div className="text-green-600 text-sm mb-4">{finishProjectSuccess}</div>}
+        {finishProjectError && <div className="text-destructive text-sm mb-4">{finishProjectError}</div>}
       </div>
 
       {/* Main Content with Tabs */}
@@ -1204,30 +1241,30 @@ export default function ProjectDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label className="text-sm font-medium text-gray-700">Description</Label>
+                <Label className="text-sm font-medium text-gray-100">Description</Label>
                 <p className="text-gray-600 mt-1 whitespace-pre-line">{project.description || "No description provided"}</p>
               </div>
               
               <div>
-                <Label className="text-sm font-medium text-gray-700">Created by</Label>
+                <Label className="text-sm font-medium text-gray-100">Created by</Label>
                 <p className="text-gray-600 mt-1 font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block">
                   {project.creator}
                 </p>
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-700">Skills Required</Label>
+                <Label className="text-sm font-medium text-gray-100">Skills Required</Label>
                 <p className="text-gray-600 mt-1">{project.skillsRequired || "Not specified"}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">Minimum Stake</Label>
+                  <Label className="text-sm font-medium text-gray-100">Minimum Stake</Label>
                   <p className="text-gray-600 mt-1">{project.minimumStake ? `${project.minimumStake} ETH` : "Not specified"}</p>
                 </div>
                 
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">Funding Amount</Label>
+                  <Label className="text-sm font-medium text-gray-100">Funding Amount</Label>
                   <p className="text-gray-600 mt-1">{project.fundingAmount ? `${project.fundingAmount} ETH` : "Not specified"}</p>
                 </div>
               </div>
@@ -1377,8 +1414,8 @@ export default function ProjectDetailsPage() {
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <h4 className="text-sm font-medium text-blue-800 mb-1">On-Chain Application Required</h4>
-                        <p className="text-sm text-blue-700">
+                        <h4 className="text-sm font-medium text-blue-200 mb-1">On-Chain Application Required</h4>
+                        <p className="text-sm text-blue-100">
                           Before accepting an application, the team leader must apply on-chain with their proposed stake. 
                           Team leaders can use the "Apply On-Chain" button below their application to submit their stake directly. 
                           Only after the on-chain application is submitted can the project creator accept the application.
@@ -1437,7 +1474,7 @@ export default function ProjectDetailsPage() {
                             variant="outline"
                             onClick={() => handleApplyOnChain(application)}
                             disabled={applyingOnChainId === application.id}
-                            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                            className="bg-blue-50 border-blue-200 text-blue-100 hover:bg-blue-100"
                           >
                             {applyingOnChainId === application.id ? "Applying on-chain..." : "Apply On-Chain"}
                           </Button>
